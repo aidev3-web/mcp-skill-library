@@ -1,0 +1,23 @@
+{
+  "name": "mcp-skill-library",
+  "version": "0.1.0",
+  "description": "MCP server: browse/pull Agent Skills from a GitHub repo and deploy them into any agent's skills folder on this machine.",
+  "main": "index.js",
+  "bin": {
+    "mcp-skill-library": "index.js"
+  },
+  "directories": {
+    "lib": "lib"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^4.5.4"
+  }
+}
