@@ -1,5 +1,5 @@
 {
-  "name": "mcp-skill-library",
+  "name": "@aidev3-web/mcp-skill-library",
   "version": "0.1.0",
   "description": "MCP server: browse/pull Agent Skills from a GitHub repo and deploy them into any agent's skills folder on this machine.",
   "main": "index.js",
@@ -16,6 +16,13 @@
   "author": "",
   "license": "ISC",
   "type": "module",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aidev3-web/mcp-skill-library.git"
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
     "zod": "^4.5.4"

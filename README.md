@@ -12,31 +12,57 @@ server", the exact steps are below — no guessing required.
 
 ## Prerequisites on the machine that will run this server
 
-- **Node.js 18+** (uses built-in `fetch`)
-- **Git** (only needed if installing via the `npx github:...` method below)
-- A `GITHUB_TOKEN` environment variable — a GitHub token with **Contents: Read**
-  access to whatever repo(s) you want to browse/pull skills from. This is
-  separate from any credential used to `git clone` this repo itself.
+- **Node.js 18+** (uses built-in `fetch`) — the only hard requirement.
+- A `GITHUB_TOKEN` environment variable with:
+  - **Contents: Read** on whatever repo(s) you want to browse/pull skills from
+  - **read:packages** if installing via GitHub Packages (recommended method below)
+- **Git** — only needed for the alternative `npx github:...` install method; not
+  needed for the GitHub Packages method.
 
 ## Install / run
 
-No npm publish required — run straight from this (private) GitHub repo:
+**Recommended — GitHub Packages (no `git` needed on the target machine):**
 
+One-time per machine, add this repo's private registry to npm config
+(`~/.npmrc`; the `${GITHUB_TOKEN}` stays a literal placeholder, resolved from
+the environment at read-time, so this file never contains a real secret):
+```bash
+echo '@aidev3-web:registry=https://npm.pkg.github.com' >> ~/.npmrc
+echo '//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}' >> ~/.npmrc
+```
+```powershell
+# PowerShell equivalent — single quotes keep ${GITHUB_TOKEN} literal
+Add-Content $HOME\.npmrc '@aidev3-web:registry=https://npm.pkg.github.com'
+Add-Content $HOME\.npmrc '//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}'
+```
+
+Then run:
+```bash
+npx --yes @aidev3-web/mcp-skill-library
+```
+
+**Alternative — straight from the git repo** (needs `git` on the machine, no
+`~/.npmrc` setup, but never fully offline — see note below):
 ```bash
 npx --yes github:aidev3-web/mcp-skill-library
 ```
 
-The first run clones + installs (slower); later runs reuse npm's cache and are
-fast, but every run still does a lightweight check against GitHub for updates
-— it is not fully offline. For a fully offline, fixed install instead run
-`npm install -g github:aidev3-web/mcp-skill-library` once and point your
-agent's config at the installed `index.js` directly.
+Either way: the very first run installs (a few seconds); later runs reuse
+npm's cache and are fast, but still do a lightweight check against the
+registry/GitHub for updates each time — this is not fully offline. For a
+fully offline, fixed install, run `npm install -g @aidev3-web/mcp-skill-library`
+(or the `github:` form) once and point your agent's config at the installed
+`index.js` directly instead of using `npx`.
 
 ## Register with your agent
 
+Replace `npx --yes @aidev3-web/mcp-skill-library` below with
+`npx --yes github:aidev3-web/mcp-skill-library` if using the git-based
+install instead.
+
 **Claude Code**
 ```bash
-claude mcp add --scope user skill-bridge -- npx --yes github:aidev3-web/mcp-skill-library
+claude mcp add --scope user skill-bridge -- npx --yes @aidev3-web/mcp-skill-library
 ```
 
 **Claude Desktop** — edit `claude_desktop_config.json`
@@ -47,7 +73,7 @@ claude mcp add --scope user skill-bridge -- npx --yes github:aidev3-web/mcp-skil
   "mcpServers": {
     "skill-bridge": {
       "command": "npx",
-      "args": ["--yes", "github:aidev3-web/mcp-skill-library"],
+      "args": ["--yes", "@aidev3-web/mcp-skill-library"],
       "env": { "GITHUB_TOKEN": "<your token>" }
     }
   }
@@ -58,7 +84,7 @@ claude mcp add --scope user skill-bridge -- npx --yes github:aidev3-web/mcp-skil
 ```json
 "skill-bridge": {
   "type": "local",
-  "command": ["npx", "--yes", "github:aidev3-web/mcp-skill-library"],
+  "command": ["npx", "--yes", "@aidev3-web/mcp-skill-library"],
   "environment": { "GITHUB_TOKEN": "{env:GITHUB_TOKEN}" }
 }
 ```
@@ -67,7 +93,7 @@ claude mcp add --scope user skill-bridge -- npx --yes github:aidev3-web/mcp-skil
 ```toml
 [mcp_servers.skill-bridge]
 command = "npx"
-args = ["--yes", "github:aidev3-web/mcp-skill-library"]
+args = ["--yes", "@aidev3-web/mcp-skill-library"]
 ```
 
 Restart the agent after editing its config — MCP config is only read on startup.
