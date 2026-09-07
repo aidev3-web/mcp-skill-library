@@ -98,6 +98,58 @@ args = ["--yes", "@aidev3-web/mcp-skill-library"]
 
 Restart the agent after editing its config — MCP config is only read on startup.
 
+## Let an agent install itself (copy-paste init prompt)
+
+Don't want to type any of the commands above by hand? Paste the block below
+as-is into a chat with any MCP-capable agent (Claude Code, Claude Desktop,
+OpenCode, Codex CLI...) running on the target machine. It detects which
+agent it is, registers `skill-bridge` the right way for that agent, and
+verifies the install — without you touching a config file.
+
+```text
+Install and register the "skill-bridge" MCP server
+(@aidev3-web/mcp-skill-library) for yourself on this machine. Do this:
+
+1. Check `node --version` is 18 or higher. If Node.js is missing or too
+   old, tell me how to install/upgrade it and stop.
+
+2. Check whether the GITHUB_TOKEN environment variable is already set
+   in this shell/session. If it is NOT set:
+   - Ask me for a GitHub token with "Contents: Read" access on the
+     repo(s) I want to browse skills from (fine-grained PAT scoped to
+     that repo, not a broad classic token).
+   - Never print, log, or write the raw token value into any file
+     except the one config entry that needs it (see step 4). Treat it
+     like a password.
+
+3. Identify which agent you are:
+   - Claude Code CLI → use `claude mcp add`.
+   - Claude Desktop → edit claude_desktop_config.json.
+   - OpenCode → edit opencode.json.
+   - Codex CLI → edit ~/.codex/config.toml.
+
+4. Register the server for yourself using the exact command/config
+   snippet for your agent type, from this repo's README.md
+   ("Register with your agent" section). Use the GitHub Packages
+   install path (`npx --yes @aidev3-web/mcp-skill-library`) unless I
+   say I don't have `~/.npmrc` set up for @aidev3-web, in which case
+   use `npx --yes github:aidev3-web/mcp-skill-library` instead. Pass
+   the GITHUB_TOKEN via the agent's own env mechanism (its config
+   file's "env" field, or an actual exported environment variable) —
+   never hardcode the token as a literal string in a committed file.
+
+5. If SKILL_LIBRARY_PATH should be anything other than the default
+   (~/.skill-library), ask me for the path and add it alongside
+   GITHUB_TOKEN in the same env block.
+
+6. Tell me to restart you (or reload MCP servers) so the new config
+   is picked up.
+
+7. Once restarted, call the `skillbridge_detect_agents` tool once and
+   report back which agent locations were found on this machine, to
+   confirm the server is actually running.
+```
+
 ## Tools this server exposes
 
 | Tool | Does |
