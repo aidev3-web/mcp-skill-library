@@ -188,3 +188,39 @@ Install and register the "skill-bridge" MCP server
 - `GITHUB_TOKEN` (required) — token used for every GitHub API call the tools make.
 - `SKILL_LIBRARY_PATH` (optional) — where `pull_skill`/`deploy_skill` read and
   write skill content locally. Defaults to `~/.skill-library`.
+
+### Where the token actually lives
+
+There is exactly **one** place that ever holds the real token value: a
+**real `GITHUB_TOKEN` environment variable** on the machine. Every config
+file below only stores a placeholder that resolves back to that variable —
+never a copy of the secret itself:
+
+| Location | Holds | Placeholder or real value? |
+|---|---|---|
+| `~/.npmrc` | `${GITHUB_TOKEN}` | Placeholder — npm resolves it from the env var at read time |
+| **Real OS/shell env var `GITHUB_TOKEN`** | the actual token | **This is the only place the real secret lives**, for every path except Claude Desktop below |
+| `.mcp.json` (project scope, Claude Code) | `"${GITHUB_TOKEN}"` | Placeholder — Claude Code needs the real env var to already be exported when it starts, not merely declared, or you'll see "Missing environment variables" |
+| `opencode.json` | `"{env:GITHUB_TOKEN}"` | Placeholder — same requirement |
+| `~/.codex/config.toml` | no `env` field at all | Codex inherits `GITHUB_TOKEN` from whatever shell/session launched it — it must already be exported there |
+| `claude_desktop_config.json` | `"env": {"GITHUB_TOKEN": "<the real value>"}` | **The one exception** — the literal value is typed directly into this file, because Claude Desktop is a GUI app that doesn't inherit your shell's environment. Safe because this file lives locally under `%APPDATA%\Claude\` / `~/Library/Application Support/Claude/` — it is never part of this or any other git repo. |
+
+### Handing a token to a new person
+
+1. Create a **fine-grained PAT** (Contents:Read on the target repo, plus
+   read:packages if they'll use the GitHub Packages install path) and send
+   it over a secure channel (password manager) — not plain chat.
+2. They set the real `GITHUB_TOKEN` environment variable on their own
+   machine:
+   - PowerShell, current session only: `$env:GITHUB_TOKEN = "ghp_xxx"`
+   - PowerShell, permanent for that user: `[System.Environment]::SetEnvironmentVariable("GITHUB_TOKEN","ghp_xxx","User")`, then open a new terminal
+   - Bash/zsh: add `export GITHUB_TOKEN=ghp_xxx` to `~/.bashrc` / `~/.zshrc`
+3. On a company-managed machine, skip step 2 entirely and run
+   `provision-skill-bridge.ps1 -GitHubToken "ghp_xxx"` once instead — it
+   sets the variable at machine level and registers the server with every
+   agent it finds, so the end user never has to touch the token or any
+   config file themselves.
+4. Claude Desktop is the one case that still needs a manual edit even
+   after step 2/3: paste the real value into `claude_desktop_config.json`'s
+   `env.GITHUB_TOKEN` field yourself (or let `provision-skill-bridge.ps1`
+   do it — it already writes that file when Claude Desktop is present).
