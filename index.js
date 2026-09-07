@@ -91,11 +91,18 @@ server.registerTool(
     const nextOffset = offset + limit;
     const nextCursor = nextOffset < dirs.length ? String(nextOffset) : null;
     const structuredContent = { items, totalMatched: dirs.length, nextCursor, truncated };
+    // List names in the text block too, not just structuredContent — some MCP
+    // clients only surface the text content to the model, so a bare count
+    // ("Found 20... returning 20.") with no names is useless to them.
+    const listing = items
+      .map((it) => `- ${it.name || it.path} (${it.path})${it.description ? `: ${it.description}` : ''}`)
+      .join('\n');
+    const summary = `Found ${dirs.length} matching skill(s) in ${owner}/${repo}@${resolvedRef}; returning ${items.length}${nextCursor ? ' (more available)' : ''}.`;
     return {
       content: [
         {
           type: 'text',
-          text: `Found ${dirs.length} matching skill(s) in ${owner}/${repo}@${resolvedRef}; returning ${items.length}${nextCursor ? ' (more available)' : ''}.`,
+          text: items.length ? `${summary}\n\n${listing}` : summary,
         },
       ],
       structuredContent,
@@ -156,8 +163,18 @@ server.registerTool(
       if (extraKeys.length) warnings.push(`frontmatter has agent-specific keys that won't port cleanly: ${extraKeys.join(', ')}`);
       pulled.push({ path: skillPath, name: fm.name || folderName, localPath: destRoot, status: 'pulled', warnings });
     }
+    // Same reasoning as search_remote_skills: list names/warnings in the text
+    // block, not just structuredContent, so clients that only surface text
+    // still show what actually happened per skill.
+    const detail = pulled
+      .map((p) => {
+        const warn = p.warnings.length ? ` [warnings: ${p.warnings.join('; ')}]` : '';
+        return `- ${p.name} (${p.path}): ${p.status}${warn}`;
+      })
+      .join('\n');
+    const summary = `Pulled ${pulled.filter((p) => p.status === 'pulled').length}/${skillPaths.length} skill(s) into ${LIBRARY_ROOT}.`;
     return {
-      content: [{ type: 'text', text: `Pulled ${pulled.filter((p) => p.status === 'pulled').length}/${skillPaths.length} skill(s) into ${LIBRARY_ROOT}.` }],
+      content: [{ type: 'text', text: pulled.length ? `${summary}\n\n${detail}` : summary }],
       structuredContent: { pulled },
     };
   },
