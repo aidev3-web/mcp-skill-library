@@ -113,22 +113,40 @@ Install and register the "skill-bridge" MCP server
 1. Check `node --version` is 18 or higher. If Node.js is missing or too
    old, tell me how to install/upgrade it and stop.
 
-2. Check whether the GITHUB_TOKEN environment variable is already set
-   in this shell/session. If it is NOT set:
+2. Check whether "skill-bridge" is already registered for you, at any
+   scope (e.g. `claude mcp list` / `claude mcp get skill-bridge` for
+   Claude Code, or the equivalent config file for your agent type). If
+   it already exists:
+   - Show me exactly what it's currently pointing at (command, scope,
+     env var names) instead of silently adding a second one.
+   - Do NOT register a duplicate under the same name at a different
+     scope — that creates an ambiguous, conflicting setup. Ask me
+     whether to leave the existing one alone, fix it in place, or
+     remove it before you add a new one.
+   - Only continue to the steps below if there is truly nothing
+     registered yet, or I've told you to replace what's there.
+
+3. Check whether the GITHUB_TOKEN environment variable is already set
+   in this shell/session — the exact name `GITHUB_TOKEN`, not a
+   similarly-named variable for a different agent (e.g.
+   `GITHUB_TOKEN_OPENCODE`). A differently-named variable does not
+   count, even if it looks like it serves the same purpose — its
+   scope/permissions may not match what this server needs. If
+   `GITHUB_TOKEN` itself is NOT set:
    - Ask me for a GitHub token with "Contents: Read" access on the
      repo(s) I want to browse skills from (fine-grained PAT scoped to
      that repo, not a broad classic token).
    - Never print, log, or write the raw token value into any file
-     except the one config entry that needs it (see step 4). Treat it
+     except the one config entry that needs it (see step 5). Treat it
      like a password.
 
-3. Identify which agent you are:
+4. Identify which agent you are:
    - Claude Code CLI → use `claude mcp add`.
    - Claude Desktop → edit claude_desktop_config.json.
    - OpenCode → edit opencode.json.
    - Codex CLI → edit ~/.codex/config.toml.
 
-4. Register the server for yourself using the exact command/config
+5. Register the server for yourself using the exact command/config
    snippet for your agent type, from this repo's README.md
    ("Register with your agent" section). Use the GitHub Packages
    install path (`npx --yes @aidev3-web/mcp-skill-library`) unless I
@@ -137,15 +155,21 @@ Install and register the "skill-bridge" MCP server
    the GITHUB_TOKEN via the agent's own env mechanism (its config
    file's "env" field, or an actual exported environment variable) —
    never hardcode the token as a literal string in a committed file.
+   Note: a `"${GITHUB_TOKEN}"`-style placeholder in a JSON/TOML config
+   file is NOT auto-expanded by every agent — some require the real
+   env var to actually be exported in the environment the agent runs
+   in, not just declared as a placeholder string. If the tool still
+   reports the variable missing after this step, fix that before
+   moving on, don't treat the config edit alone as done.
 
-5. If SKILL_LIBRARY_PATH should be anything other than the default
+6. If SKILL_LIBRARY_PATH should be anything other than the default
    (~/.skill-library), ask me for the path and add it alongside
    GITHUB_TOKEN in the same env block.
 
-6. Tell me to restart you (or reload MCP servers) so the new config
+7. Tell me to restart you (or reload MCP servers) so the new config
    is picked up.
 
-7. Once restarted, call the `skillbridge_detect_agents` tool once and
+8. Once restarted, call the `skillbridge_detect_agents` tool once and
    report back which agent locations were found on this machine, to
    confirm the server is actually running.
 ```
