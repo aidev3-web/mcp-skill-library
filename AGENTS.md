@@ -11,10 +11,14 @@ anything under `mcp-skill-library/`.
 
 - A single MCP server (`skill-bridge`), published as
   `@aidev3-web/mcp-skill-library`. Plain Node ESM, no build step.
-- Layout: `index.js` (the 4 registered tools) · `lib/github.js` (GitHub
-  REST calls) · `lib/frontmatter.js` (SKILL.md frontmatter parsing) ·
-  `lib/agents.js` (agent detection + symlink deploy).
-- Required env var: `GITHUB_TOKEN` (Contents:Read on the target repo).
+- Layout: `index.js` (the 6 registered tools) · `lib/github.js` (GitHub
+  REST calls, read AND write) · `lib/frontmatter.js` (SKILL.md frontmatter
+  parsing) · `lib/agents.js` (agent detection + symlink deploy) ·
+  `lib/validate.js` (SKILL.md frontmatter rule-checking, shared by
+  `validate_skill` and `push_skill`) · `lib/localfs.js` (recursive local
+  skill-folder walk for `push_skill`).
+- Required env var: `GITHUB_TOKEN` (Contents:Read on the target repo;
+  Contents:Read **and Write** if `push_skill` will be used).
   Optional: `SKILL_LIBRARY_PATH` (default `~/.skill-library`).
 - No automated test suite exists yet (`npm test` is a placeholder that
   always fails — don't try to make it pass, and don't delete the
@@ -25,10 +29,10 @@ anything under `mcp-skill-library/`.
   `main`.
 - Manual verification: register the server locally
   (`claude mcp add --scope user skill-bridge -- node <path-to>/index.js`
-  works without publishing) and call each of the 4 tools at least once
-  end to end (search → pull → detect → deploy) against a scratch repo,
-  not a real skill library, before opening a PR that touches `index.js`
-  or `lib/`.
+  works without publishing) and call each of the 6 tools at least once
+  end to end (search → pull → detect → deploy, and validate → push)
+  against a scratch repo/branch — never `main` of any real repo — before
+  opening a PR that touches `index.js` or `lib/`.
 
 ## 2. Commit messages
 
@@ -58,6 +62,7 @@ no-op instead of a false "skipped-exists".
 The scope is optional but preferred. Use the part of the system you
 touched: `index` (tool definitions/schemas), `github` (`lib/github.js`),
 `agents` (`lib/agents.js`), `frontmatter` (`lib/frontmatter.js`),
+`validate` (`lib/validate.js`), `localfs` (`lib/localfs.js`),
 `docs` (README/AGENTS.md), `config` (package.json, `.npmrc`,
 `provision-skill-bridge.ps1`). Omit it for changes that genuinely span
 the whole package.
@@ -126,6 +131,8 @@ Branch names are lower-case with hyphens, e.g. `feat/pull-skill-dedupe`.
    node --check lib/github.js
    node --check lib/agents.js
    node --check lib/frontmatter.js
+   node --check lib/validate.js
+   node --check lib/localfs.js
    ```
 3. Manually exercise the change (see §1's "Manual verification") — there
    is no automated suite to lean on instead.

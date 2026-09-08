@@ -3,9 +3,10 @@
 MCP server (`skill-bridge`) that lets any MCP-capable agent — Claude Code, Claude
 Desktop, OpenCode, Codex CLI, or any other client that speaks MCP — browse and
 pull [Agent Skills](https://agentskills.io/home) (`SKILL.md` folders) from a
-GitHub repo, and deploy them into whichever agent's local skills folder exists
-on the machine. It talks to GitHub over the REST API (no local `git` needed for
-this part), and only ever touches the local filesystem for the deploy step.
+GitHub repo, deploy them into whichever agent's local skills folder exists on
+the machine, and push a locally-created skill back up to a GitHub repo. It
+talks to GitHub over the REST API (no local `git` needed for that part), and
+only ever touches the local filesystem for the deploy/validate/push steps.
 
 If an agent is reading this file because it was asked to "install this MCP
 server", the exact steps are below — no guessing required.
@@ -14,10 +15,18 @@ server", the exact steps are below — no guessing required.
 
 - **Node.js 18+** (uses built-in `fetch`) — the only hard requirement.
 - **Git** — to clone this repo once for the recommended local-run install below.
-- A `GITHUB_TOKEN` environment variable with **Contents: Read** on whatever
-  repo(s) you want to browse/pull skills from. (**read:packages** is only
-  needed for the `npx` alternative further down — the recommended install
-  below never touches GitHub Packages, so a plain fine-grained PAT is enough.)
+- A `GITHUB_TOKEN` environment variable with:
+  - **Contents: Read** on whatever repo(s) you want to browse/pull skills from.
+  - **Contents: Read AND Write** on any repo you'll use `skillbridge_push_skill`
+    against — Read alone (sufficient for every other tool) is not enough for
+    that one, since it creates commits.
+  - (**read:packages** is only needed for the `npx` alternative further down —
+    the recommended install below never touches GitHub Packages, so a plain
+    fine-grained PAT is enough for install itself.)
+  - Note: branch protection rules are a *repo setting*, not a token scope —
+    even a Read+Write token can't push directly to a branch that requires PRs;
+    `skillbridge_push_skill` can't bypass that, it'll just fail with GitHub's
+    own rejection message.
 
 ## Install / run
 
@@ -209,10 +218,34 @@ Install and register the "skill-bridge" MCP server
 | `skillbridge_pull_skill` | Fetch specific skill folders and copy them into the local skill library |
 | `skillbridge_detect_agents` | Detect which agents (Claude Code, Codex, OpenCode, Cursor, Gemini CLI, GitHub Copilot) have a skills folder on this machine |
 | `skillbridge_deploy_skill` | Symlink a pulled skill into every detected agent's skills folder (falls back to a copy if symlinking isn't available). Takes an optional `scopes` filter (`global`/`project`) — the calling agent should ask the user which scope(s) they want before calling this, the same way Claude Code's own plugin installer asks "user scope" vs "project scope" |
+| `skillbridge_validate_skill` | Check a local skill folder against the same 4 rules SKILL-LIB's CI lint enforces (frontmatter parses, only name/description keys, name format/length/folder-match, non-empty description) — no network, safe to call repeatedly |
+| `skillbridge_push_skill` | Validate (fail-closed) then push a local skill folder to a GitHub repo as one atomic commit via the Git Data API, with an identity cross-check against the GITHUB_TOKEN account and a per-skill `.meta.json` tracking uploadedBy/uploadedAt/updatedBy/updatedAt |
+
+### Recommended workflow for publishing a locally-created skill
+
+`skillbridge_push_skill` never pushes straight to the repo's default branch
+(`main`/`master`) — it always targets a feature branch (auto-named
+`skill/<skillName>` if you don't pass one), creating it from the current
+default-branch head if it doesn't exist yet. The full recommended flow:
+
+1. **Push** — `skillbridge_push_skill` to the feature branch.
+2. **Pull it back down to verify** — `skillbridge_search_remote_skills` /
+   `skillbridge_pull_skill` with `ref` set to that same branch, to confirm
+   the skill round-tripped correctly (not just trusting the local copy).
+3. **Open a PR** — e.g. `gh pr create --base <default branch> --head
+   skill/<skillName>` — once step 2 looks right.
+4. **A human reviews and merges** — this repo's `CODEOWNERS` already
+   requires review before merge; the tool never merges anything itself.
+
+Only pass `allowDirectToDefaultBranch: true` if a human has explicitly asked
+for a direct push, bypassing this workflow — it's a deliberate, rarely-needed
+escape hatch, not the default path.
 
 ## Configuration
 
 - `GITHUB_TOKEN` (required) — token used for every GitHub API call the tools make.
+  `skillbridge_push_skill` needs Contents: Read AND Write; every other tool
+  only needs Contents: Read.
 - `SKILL_LIBRARY_PATH` (optional) — where `pull_skill`/`deploy_skill` read and
   write skill content locally. Defaults to `~/.skill-library`.
 
@@ -234,9 +267,12 @@ never a copy of the secret itself:
 
 ### Handing a token to a new person
 
-1. Create a **fine-grained PAT** (Contents:Read on the target repo, plus
+1. Create a **fine-grained PAT** (Contents:Read on the target repo — add
+   Contents:Write too if they'll use `skillbridge_push_skill`, plus
    read:packages if they'll use the GitHub Packages install path) and send
-   it over a secure channel (password manager) — not plain chat.
+   it over a secure channel (password manager) — not plain chat. Note:
+   `GET /user` (used by `skillbridge_push_skill`'s identity cross-check)
+   works with any authenticated token — it needs no extra scope of its own.
 2. They set the real `GITHUB_TOKEN` environment variable on their own
    machine:
    - PowerShell, current session only: `$env:GITHUB_TOKEN = "ghp_xxx"`
