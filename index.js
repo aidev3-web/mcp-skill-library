@@ -212,17 +212,18 @@ server.registerTool(
   'skillbridge_deploy_skill',
   {
     description:
-      'Symlink (junction on Windows) a skill already pulled into SKILL-LIB/ into every detected agent skill directory on this machine (Claude Code, Codex, OpenCode, Cursor, Gemini CLI, GitHub Copilot), so any agent here can use it. Falls back to copying if symlinking is unavailable in this environment. Never overwrites an existing non-symlink folder.',
+      'Symlink (junction on Windows) a skill already pulled into SKILL-LIB/ into every detected agent skill directory on this machine (Claude Code, Codex, OpenCode, Cursor, Gemini CLI, GitHub Copilot), so any agent here can use it. Falls back to copying if symlinking is unavailable in this environment. Never overwrites an existing non-symlink folder. IMPORTANT for the calling agent: before invoking this tool, ask the user which scope(s) to install into — "global" (available to every project on this machine) vs "project" (only this project, and shared with collaborators if committed) — the same way Claude Code\'s own plugin installer asks "Install for you (user scope)" vs "Install for all collaborators on this repository (project scope)". Do not default to deploying to every detected location without asking first, unless the user has already told you which scope(s) they want.',
     inputSchema: {
       skillName: z.string().describe('Folder name under SKILL-LIB/, as returned by skillbridge_pull_skill'),
       cwd: z.string().optional(),
       targets: z.array(z.enum(['claude-code', 'codex', 'opencode', 'cursor', 'gemini', 'copilot'])).optional().describe('Restrict to these agents only (default: all detected)'),
+      scopes: z.array(z.enum(['global', 'project'])).optional().describe('Restrict to these scope(s) only (default: both). Ask the user which scope(s) they want before calling this tool — see the tool description.'),
     },
     outputSchema: {
       results: z.array(z.object({ agent: z.string(), scope: z.string(), skillsDir: z.string(), status: z.string(), path: z.string().optional(), note: z.string().optional(), error: z.string().optional() })),
     },
   },
-  async ({ skillName, cwd, targets }) => {
+  async ({ skillName, cwd, targets, scopes }) => {
     const sourceDir = path.join(LIBRARY_ROOT, skillName);
     if (!fs.existsSync(path.join(sourceDir, 'SKILL.md'))) {
       return {
@@ -232,6 +233,7 @@ server.registerTool(
     }
     let agents = detectAgents(cwd || process.cwd());
     if (targets?.length) agents = agents.filter((a) => targets.includes(a.agent));
+    if (scopes?.length) agents = agents.filter((a) => scopes.includes(a.scope));
     const results = deploySkill(sourceDir, agents);
     // Same reasoning as the other tools: list per-agent status/notes in the
     // text block, not just a count — a "deployed-copy" fallback especially
@@ -245,7 +247,7 @@ server.registerTool(
     const deployedCount = results.filter((r) => r.status === 'deployed' || r.status === 'deployed-copy').length;
     const summary = `Deployed "${skillName}" to ${deployedCount} agent location(s).`;
     return {
-      content: [{ type: 'text', text: `${summary}\n\n${listing}` }],
+      content: [{ type: 'text', text: results.length ? `${summary}\n\n${listing}` : summary }],
       structuredContent: { results },
     };
   },
