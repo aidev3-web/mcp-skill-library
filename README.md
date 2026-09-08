@@ -13,67 +13,89 @@ server", the exact steps are below — no guessing required.
 ## Prerequisites on the machine that will run this server
 
 - **Node.js 18+** (uses built-in `fetch`) — the only hard requirement.
-- A `GITHUB_TOKEN` environment variable with:
-  - **Contents: Read** on whatever repo(s) you want to browse/pull skills from
-  - **read:packages** if installing via GitHub Packages (recommended method below)
-- **Git** — only needed for the alternative `npx github:...` install method; not
-  needed for the GitHub Packages method.
+- **Git** — to clone this repo once for the recommended local-run install below.
+- A `GITHUB_TOKEN` environment variable with **Contents: Read** on whatever
+  repo(s) you want to browse/pull skills from. (**read:packages** is only
+  needed for the `npx` alternative further down — the recommended install
+  below never touches GitHub Packages, so a plain fine-grained PAT is enough.)
 
 ## Install / run
 
-**Recommended — GitHub Packages (no `git` needed on the target machine):**
+**Recommended — run local (no network needed at server startup):**
 
-One-time per machine, add this repo's private registry to npm config
-(`~/.npmrc`; the `${GITHUB_TOKEN}` stays a literal placeholder, resolved from
-the environment at read-time, so this file never contains a real secret):
+`npx` has to re-check/re-fetch the package from a registry every time an
+agent launches it — that's an extra network round-trip and an extra auth
+scope (`read:packages`) on the critical path of just starting a local
+process. Cloning once and running the checked-out `index.js` directly
+removes both:
+
+```bash
+git clone https://github.com/aidev3-web/mcp-skill-library.git
+cd mcp-skill-library
+npm install
+```
+
+Then point your agent's config at the **absolute path** of `index.js` in
+that folder, using `node` as the command (exact snippets per agent below).
+To update later, `git pull` inside that folder — no re-registration needed.
+
+**Alternative — `npx`** (fine if the machine has reliable network and you'd
+rather not manage a local checkout, but see the trade-off below):
+
+GitHub Packages path (needs `read:packages` on the token; one-time `~/.npmrc`
+setup, `${GITHUB_TOKEN}` stays a literal placeholder resolved at read-time):
 ```bash
 echo '@aidev3-web:registry=https://npm.pkg.github.com' >> ~/.npmrc
 echo '//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}' >> ~/.npmrc
 ```
 ```powershell
-# PowerShell equivalent — single quotes keep ${GITHUB_TOKEN} literal
 Add-Content $HOME\.npmrc '@aidev3-web:registry=https://npm.pkg.github.com'
 Add-Content $HOME\.npmrc '//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}'
 ```
-
-Then run:
 ```bash
 npx --yes @aidev3-web/mcp-skill-library
 ```
 
-**Alternative — straight from the git repo** (needs `git` on the machine, no
-`~/.npmrc` setup, but never fully offline — see note below):
+Or straight from the git repo (no `~/.npmrc` setup, only `Contents: Read`
+needed, but re-clones on every launch):
 ```bash
 npx --yes github:aidev3-web/mcp-skill-library
 ```
 
-Either way: the very first run installs (a few seconds); later runs reuse
-npm's cache and are fast, but still do a lightweight check against the
-registry/GitHub for updates each time — this is not fully offline. For a
-fully offline, fixed install, run `npm install -g @aidev3-web/mcp-skill-library`
-(or the `github:` form) once and point your agent's config at the installed
-`index.js` directly instead of using `npx`.
+**Trade-off, from experience**: both `npx` forms have caused real, hard-to-
+diagnose failures in practice — a fine-grained token lacking `read:packages`
+gets a bare `403` from the GitHub Packages path, and the git-based path can
+time out mid-launch on a flaky connection (re-cloning on every single
+startup, not just the first). The recommended local-run install above
+doesn't hit either failure mode, because nothing after the one-time clone
+touches the network.
 
 ## Register with your agent
 
-Replace `npx --yes @aidev3-web/mcp-skill-library` below with
-`npx --yes github:aidev3-web/mcp-skill-library` if using the git-based
-install instead.
+Every snippet below uses `node` pointed at your local checkout's `index.js`
+— replace `/absolute/path/to/mcp-skill-library/index.js` with the real path
+on your machine (on Windows, use `\\` between path segments in JSON/TOML).
+If you're using the `npx` alternative instead, replace `"command": "node",
+"args": ["/absolute/path/to/mcp-skill-library/index.js"]` with `"command":
+"npx", "args": ["--yes", "@aidev3-web/mcp-skill-library"]` (or the `github:`
+form) in each snippet.
 
 **Claude Code**
 ```bash
-claude mcp add --scope user skill-bridge -- npx --yes @aidev3-web/mcp-skill-library
+claude mcp add --scope user skill-bridge -- node /absolute/path/to/mcp-skill-library/index.js
 ```
 
-**Claude Desktop** — edit `claude_desktop_config.json`
-(`%APPDATA%\Claude\claude_desktop_config.json` on Windows,
-`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+**Claude Desktop** — edit `claude_desktop_config.json` via the app's
+**Settings → Developer → Edit Config** button (safest — it opens the exact
+file this install of Claude Desktop actually reads, including on a
+Microsoft Store install, which uses a different, sandboxed path than the
+`%APPDATA%\Claude\...` location some docs assume):
 ```json
 {
   "mcpServers": {
     "skill-bridge": {
-      "command": "npx",
-      "args": ["--yes", "@aidev3-web/mcp-skill-library"],
+      "command": "node",
+      "args": ["/absolute/path/to/mcp-skill-library/index.js"],
       "env": { "GITHUB_TOKEN": "<your token>" }
     }
   }
@@ -84,7 +106,7 @@ claude mcp add --scope user skill-bridge -- npx --yes @aidev3-web/mcp-skill-libr
 ```json
 "skill-bridge": {
   "type": "local",
-  "command": ["npx", "--yes", "@aidev3-web/mcp-skill-library"],
+  "command": ["node", "/absolute/path/to/mcp-skill-library/index.js"],
   "environment": { "GITHUB_TOKEN": "{env:GITHUB_TOKEN}" }
 }
 ```
@@ -92,8 +114,8 @@ claude mcp add --scope user skill-bridge -- npx --yes @aidev3-web/mcp-skill-libr
 **Codex CLI** — add to `~/.codex/config.toml`:
 ```toml
 [mcp_servers.skill-bridge]
-command = "npx"
-args = ["--yes", "@aidev3-web/mcp-skill-library"]
+command = "node"
+args = ["/absolute/path/to/mcp-skill-library/index.js"]
 ```
 
 Restart the agent after editing its config — MCP config is only read on startup.
@@ -148,19 +170,24 @@ Install and register the "skill-bridge" MCP server
 
 5. Register the server for yourself using the exact command/config
    snippet for your agent type, from this repo's README.md
-   ("Register with your agent" section). Use the GitHub Packages
-   install path (`npx --yes @aidev3-web/mcp-skill-library`) unless I
-   say I don't have `~/.npmrc` set up for @aidev3-web, in which case
-   use `npx --yes github:aidev3-web/mcp-skill-library` instead. Pass
-   the GITHUB_TOKEN via the agent's own env mechanism (its config
-   file's "env" field, or an actual exported environment variable) —
-   never hardcode the token as a literal string in a committed file.
-   Note: a `"${GITHUB_TOKEN}"`-style placeholder in a JSON/TOML config
-   file is NOT auto-expanded by every agent — some require the real
-   env var to actually be exported in the environment the agent runs
-   in, not just declared as a placeholder string. If the tool still
-   reports the variable missing after this step, fix that before
-   moving on, don't treat the config edit alone as done.
+   ("Register with your agent" section). Prefer the recommended
+   local-run install: `git clone` this repo (or reuse an existing
+   checkout if I already have one), `npm install`, then point your
+   config at that checkout's `index.js` via `node` — this avoids
+   network/registry-auth failures at every future launch. Only fall
+   back to the `npx` alternative if I explicitly say I'd rather not
+   manage a local checkout; if so, use the GitHub Packages form unless
+   I say I don't have `~/.npmrc` set up for @aidev3-web, in which case
+   use the `github:` form instead. Pass the GITHUB_TOKEN via the
+   agent's own env mechanism (its config file's "env" field, or an
+   actual exported environment variable) — never hardcode the token
+   as a literal string in a committed file. Note: a
+   `"${GITHUB_TOKEN}"`-style placeholder in a JSON/TOML config file is
+   NOT auto-expanded by every agent — some require the real env var to
+   actually be exported in the environment the agent runs in, not just
+   declared as a placeholder string. If the tool still reports the
+   variable missing after this step, fix that before moving on, don't
+   treat the config edit alone as done.
 
 6. If SKILL_LIBRARY_PATH should be anything other than the default
    (~/.skill-library), ask me for the path and add it alongside
