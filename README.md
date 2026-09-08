@@ -127,15 +127,33 @@ command = "node"
 args = ["/absolute/path/to/mcp-skill-library/index.js"]
 ```
 
+**Antigravity IDE** (Google's agentic IDE — not Gemini CLI; its `~/.gemini`
+folder is its own config home, unrelated to actual Gemini CLI) — edit via the
+UI: click **...** at the top of the Agent panel → **MCP Servers** → **Manage
+MCP Servers** → **View raw config**, or edit the file directly at
+`~/.gemini/config/mcp_config.json` (global) or `.agents/mcp_config.json`
+(workspace-only):
+```json
+{
+  "mcpServers": {
+    "skill-bridge": {
+      "command": "node",
+      "args": ["/absolute/path/to/mcp-skill-library/index.js"],
+      "env": { "GITHUB_TOKEN": "${GITHUB_TOKEN}" }
+    }
+  }
+}
+```
+
 Restart the agent after editing its config — MCP config is only read on startup.
 
 ## Let an agent install itself (copy-paste init prompt)
 
 Don't want to type any of the commands above by hand? Paste the block below
 as-is into a chat with any MCP-capable agent (Claude Code, Claude Desktop,
-OpenCode, Codex CLI...) running on the target machine. It detects which
-agent it is, registers `skill-bridge` the right way for that agent, and
-verifies the install — without you touching a config file.
+OpenCode, Codex CLI, Antigravity IDE...) running on the target machine. It
+detects which agent it is, registers `skill-bridge` the right way for that
+agent, and verifies the install — without you touching a config file.
 
 ```text
 Install and register the "skill-bridge" MCP server
@@ -176,6 +194,11 @@ Install and register the "skill-bridge" MCP server
    - Claude Desktop → edit claude_desktop_config.json.
    - OpenCode → edit opencode.json.
    - Codex CLI → edit ~/.codex/config.toml.
+   - Antigravity IDE (Google's agentic IDE — NOT Gemini CLI, even though it
+     uses a `~/.gemini` folder for its own config) → edit
+     `~/.gemini/config/mcp_config.json` (global) or `.agents/mcp_config.json`
+     (workspace-only), or use the UI: **...** at the top of the Agent panel →
+     **MCP Servers** → **Manage MCP Servers** → **View raw config**.
 
 5. Register the server for yourself using the exact command/config
    snippet for your agent type, from this repo's README.md
@@ -263,6 +286,7 @@ never a copy of the secret itself:
 | `.mcp.json` (project scope, Claude Code) | `"${GITHUB_TOKEN}"` | Placeholder — Claude Code needs the real env var to already be exported when it starts, not merely declared, or you'll see "Missing environment variables" |
 | `opencode.json` | `"{env:GITHUB_TOKEN}"` | Placeholder — same requirement |
 | `~/.codex/config.toml` | no `env` field at all | Codex inherits `GITHUB_TOKEN` from whatever shell/session launched it — it must already be exported there |
+| `mcp_config.json` (Antigravity IDE) | `"${GITHUB_TOKEN}"` | Placeholder — same requirement as Claude Code/`.mcp.json` above |
 | `claude_desktop_config.json` | `"env": {"GITHUB_TOKEN": "<the real value>"}` | **The one exception** — the literal value is typed directly into this file, because Claude Desktop is a GUI app that doesn't inherit your shell's environment. Safe because this file lives locally under `%APPDATA%\Claude\` / `~/Library/Application Support/Claude/` — it is never part of this or any other git repo. |
 
 ### Handing a token to a new person
