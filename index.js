@@ -5,9 +5,23 @@ import { z } from 'zod';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { getDefaultBranch, getRecursiveTree, getBlobText } from './lib/github.js';
+import {
+  getDefaultBranch,
+  getRecursiveTree,
+  getBlobText,
+  getAuthenticatedUser,
+  getBranchHead,
+  tryGetBranchHead,
+  createBranch,
+  createBlob,
+  createTree,
+  createCommit,
+  updateRef,
+} from './lib/github.js';
 import { parseFrontmatter } from './lib/frontmatter.js';
 import { detectAgents, deploySkill } from './lib/agents.js';
+import { validateSkillFolder } from './lib/validate.js';
+import { walkSkillFiles } from './lib/localfs.js';
 
 // Independent of where this tool's own code lives — set SKILL_LIBRARY_PATH to
 // point at wherever pulled skills should be stored locally.
@@ -249,6 +263,281 @@ server.registerTool(
     return {
       content: [{ type: 'text', text: results.length ? `${summary}\n\n${listing}` : summary }],
       structuredContent: { results },
+    };
+  },
+);
+
+server.registerTool(
+  'skillbridge_validate_skill',
+  {
+    description:
+      'Check a local skill folder against the same 4 rules SKILL-LIB\'s CI lint enforces (frontmatter parses, only name/description keys allowed, name format/length/folder-match, non-empty description). No network calls — safe to call repeatedly. This is a fast local approximation, not a substitute for the real CI lint job: the frontmatter reader used here is not a full YAML parser.',
+    inputSchema: {
+      skillPath: z
+        .string()
+        .describe('Absolute local folder path to the skill to validate (does not need to be inside SKILL_LIBRARY_PATH — can be any skill folder on disk, e.g. ~/.claude/skills/my-new-skill)'),
+    },
+    outputSchema: {
+      skillPath: z.string(),
+      name: z.string().nullable(),
+      valid: z.boolean(),
+      issues: z.array(z.string()),
+    },
+  },
+  async ({ skillPath }) => {
+    if (!fs.existsSync(skillPath) || !fs.statSync(skillPath).isDirectory()) {
+      return { content: [{ type: 'text', text: `Not a directory: ${skillPath}` }], isError: true };
+    }
+    const { valid, issues, name } = validateSkillFolder(skillPath);
+    const listing = issues.length ? issues.map((i) => `- ${i}`).join('\n') : 'No issues found.';
+    const summary = `Skill "${name || path.basename(skillPath)}" at ${skillPath}: ${valid ? 'VALID' : `INVALID (${issues.length} issue(s))`}.`;
+    return {
+      content: [{ type: 'text', text: `${summary}\n\n${listing}` }],
+      structuredContent: { skillPath, name, valid, issues },
+    };
+  },
+);
+
+server.registerTool(
+  'skillbridge_push_skill',
+  {
+    description:
+      'Validate (fail-closed — refuses if invalid, no GitHub calls made) then push a local skill folder to a GitHub repo as ONE atomic commit (Git Data API: blob per file -> tree -> commit -> ref update), so a skill created locally on some agent can be published back to the shared library. Writes a per-skill .meta.json (uploadedBy/uploadedAt/updatedBy/updatedAt) in the same commit. NEVER pushes directly to the repo\'s default branch (main/master) — it always targets a feature branch (auto-named "skill/<skillName>" if you don\'t pass one), creating that branch from the current default-branch head if it doesn\'t exist yet, matching this project\'s own "never push to main without confirmation, default to a feature branch + PR" convention. The recommended full workflow for the calling agent: (1) call this tool to push to the feature branch, (2) call skillbridge_search_remote_skills/skillbridge_pull_skill with ref=<that branch> to pull it back down and verify it round-tripped correctly, (3) if that looks right, open a PR (e.g. via `gh pr create --base <default branch> --head <feature branch>`) for a human reviewer to check and merge — do not merge it yourself. IMPORTANT: ask the user for their name/email/GitHub username (the `identity` field) BEFORE calling this tool — do not guess or reuse a value from earlier context. The tool independently checks that identity against the GITHUB_TOKEN account and refuses on a mismatch unless confirmMismatch is explicitly set. Needs a GITHUB_TOKEN with Contents: Read AND Write on the target repo (Contents: Read alone, sufficient for pull-only tools, is not enough here).',
+    inputSchema: {
+      skillPath: z.string().describe('Absolute local folder path to the skill to push (must pass the same checks as skillbridge_validate_skill; this tool refuses to push otherwise)'),
+      owner: z.string(),
+      repo: z.string(),
+      branch: z
+        .string()
+        .optional()
+        .describe('Feature branch to push to (default: auto-generated "skill/<skillName>"). Created from the default branch\'s current head if it doesn\'t exist yet. Never the repo\'s actual default branch unless allowDirectToDefaultBranch is also set.'),
+      allowDirectToDefaultBranch: z
+        .boolean()
+        .optional()
+        .default(false)
+        .describe('Set true ONLY if the user has explicitly asked for a direct push to the repo\'s default branch, bypassing the feature-branch+PR workflow. Leave false/omitted otherwise — this is a deliberate, rarely-needed override.'),
+      identity: z
+        .string()
+        .describe(
+          'The name, email, or GitHub username of the person actually uploading/updating this skill. Ask the user for this before calling — never guess it.',
+        ),
+      confirmMismatch: z
+        .boolean()
+        .optional()
+        .default(false)
+        .describe(
+          'Set true only if the user has explicitly confirmed they intend to push under an identity that does not match the GITHUB_TOKEN account (e.g. pushing on behalf of a teammate). Leave false/omitted otherwise.',
+        ),
+      commitMessage: z.string().optional().describe('Override the default commit message ("feat(library): Add/Update <skillName> skill")'),
+    },
+    outputSchema: {
+      status: z.enum(['pushed', 'validation-failed', 'identity-mismatch', 'conflict']),
+      skillName: z.string().nullable(),
+      isUpdate: z.boolean().optional(),
+      commitSha: z.string().optional(),
+      commitUrl: z.string().optional(),
+      filesPushed: z.array(z.string()),
+      meta: z
+        .object({
+          uploadedBy: z.string(),
+          uploadedAt: z.string(),
+          updatedBy: z.string(),
+          updatedAt: z.string(),
+          verifiedAgainstToken: z.boolean(),
+        })
+        .optional(),
+      issues: z.array(z.string()),
+      warnings: z.array(z.string()),
+    },
+  },
+  async ({ skillPath, owner, repo, branch, allowDirectToDefaultBranch, identity, confirmMismatch, commitMessage }) => {
+    const warnings = [];
+
+    // 1. Validate first — fail closed, zero GitHub calls if invalid.
+    const v = validateSkillFolder(skillPath);
+    if (!v.valid) {
+      const listing = v.issues.map((i) => `- ${i}`).join('\n');
+      return {
+        content: [{ type: 'text', text: `Refusing to push — validation failed:\n\n${listing}` }],
+        isError: true,
+        structuredContent: {
+          status: 'validation-failed',
+          skillName: v.name,
+          filesPushed: [],
+          issues: v.issues,
+          warnings: [],
+        },
+      };
+    }
+    const skillName = v.name;
+
+    const token = requireToken();
+    const defaultBranch = await getDefaultBranch(owner, repo, token);
+    const resolvedBranch = branch || `skill/${skillName}`;
+
+    // Never push straight to the default branch unless explicitly allowed —
+    // matches this project's own "never push to main without confirmation"
+    // convention. A feature branch is created (from the current default
+    // branch head) if it doesn't already exist.
+    if (resolvedBranch === defaultBranch && !allowDirectToDefaultBranch) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text:
+              `Refusing to push directly to "${defaultBranch}" (the repo's default branch). Use a feature ` +
+              `branch instead (e.g. "skill/${skillName}"), or pass allowDirectToDefaultBranch:true if the ` +
+              `user explicitly asked for a direct push.`,
+          },
+        ],
+        isError: true,
+        structuredContent: { status: 'validation-failed', skillName, filesPushed: [], issues: [], warnings: [] },
+      };
+    }
+
+    // 2. Identity cross-check — before any write call.
+    const user = await getAuthenticatedUser(token);
+    const candidates = [user.login, user.name, user.email].filter(Boolean).map((s) => s.toLowerCase());
+    const claim = identity.toLowerCase();
+    const matched = candidates.some((c) => c === claim || c.includes(claim) || claim.includes(c));
+    if (!matched && !confirmMismatch) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text:
+              `Refusing to push — identity mismatch. You said "${identity}" but GITHUB_TOKEN belongs to ` +
+              `login="${user.login}" name="${user.name}" email="${user.email}". Fix the identity value, ` +
+              `or pass confirmMismatch:true if you're intentionally pushing on someone else's behalf.`,
+          },
+        ],
+        isError: true,
+        structuredContent: {
+          status: 'identity-mismatch',
+          skillName,
+          filesPushed: [],
+          issues: [],
+          warnings: [],
+        },
+      };
+    }
+    const verifiedAgainstToken = matched;
+
+    // 3. Read current branch state — creating the feature branch (from the
+    // default branch's current head) if it doesn't exist yet.
+    let baseSha = await tryGetBranchHead(owner, repo, resolvedBranch, token);
+    let branchCreated = false;
+    if (baseSha === null) {
+      baseSha = await getBranchHead(owner, repo, defaultBranch, token);
+      await createBranch(owner, repo, resolvedBranch, baseSha, token);
+      branchCreated = true;
+      warnings.push(`Branch "${resolvedBranch}" did not exist — created it from "${defaultBranch}"'s current head.`);
+    }
+    const { sha: baseTreeSha, tree, truncated } = await getRecursiveTree(owner, repo, baseSha, token);
+    if (truncated) warnings.push('GitHub truncated the repo tree response (repo too large for one call) — existing-skill detection may be incomplete');
+
+    const existingEntries = tree.filter((e) => e.path === skillName || e.path.startsWith(`${skillName}/`));
+    const isUpdate = existingEntries.length > 0;
+
+    // 4. Resolve prior metadata (preserve uploadedBy/uploadedAt on update).
+    const nowIso = new Date().toISOString();
+    let uploadedBy = identity;
+    let uploadedAt = nowIso;
+    if (isUpdate) {
+      const metaEntry = existingEntries.find((e) => e.path === `${skillName}/.meta.json`);
+      if (metaEntry) {
+        try {
+          const existingMetaText = await getBlobText(owner, repo, metaEntry.sha, token);
+          const existingMeta = JSON.parse(existingMetaText);
+          if (existingMeta.uploadedBy) uploadedBy = existingMeta.uploadedBy;
+          if (existingMeta.uploadedAt) uploadedAt = existingMeta.uploadedAt;
+        } catch (e) {
+          warnings.push(`existing .meta.json was malformed (${e.message}); backfilling upload metadata with this push's identity/time`);
+        }
+      } else {
+        warnings.push('no prior .meta.json found for this existing skill; upload metadata backfilled with this push\'s identity/time');
+      }
+    }
+    const meta = { uploadedBy, uploadedAt, updatedBy: identity, updatedAt: nowIso, verifiedAgainstToken };
+
+    // 5. Blob every real file, plus the synthesized .meta.json.
+    const files = walkSkillFiles(skillPath);
+    const entries = [];
+    for (const f of files) {
+      const buf = fs.readFileSync(f.absolutePath);
+      const sha = await createBlob(owner, repo, buf.toString('base64'), token);
+      entries.push({ path: `${skillName}/${f.relativePath}`, mode: '100644', type: 'blob', sha });
+    }
+    const metaSha = await createBlob(owner, repo, Buffer.from(JSON.stringify(meta, null, 2)).toString('base64'), token);
+    entries.push({ path: `${skillName}/.meta.json`, mode: '100644', type: 'blob', sha: metaSha });
+
+    // 6. Tree -> commit -> (re-check) -> ref update.
+    const newTreeSha = await createTree(owner, repo, baseTreeSha, entries, token);
+    const message = commitMessage || `feat(library): ${isUpdate ? 'Update' : 'Add'} ${skillName} skill`;
+    const newCommitSha = await createCommit(owner, repo, message, newTreeSha, baseSha, token);
+
+    const currentSha = await getBranchHead(owner, repo, resolvedBranch, token);
+    if (currentSha !== baseSha) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text:
+              `Refusing to update the ref — ${owner}/${repo}@${resolvedBranch} moved from ${baseSha} to ${currentSha} ` +
+              `while this push was in progress (someone else pushed in the meantime). Nothing on ${resolvedBranch} was ` +
+              `changed — the commit/blobs this push created are unreferenced and harmless. Retry the whole call.`,
+          },
+        ],
+        isError: true,
+        structuredContent: {
+          status: 'conflict',
+          skillName,
+          isUpdate,
+          filesPushed: [],
+          issues: [],
+          warnings,
+        },
+      };
+    }
+
+    try {
+      await updateRef(owner, repo, resolvedBranch, newCommitSha, token);
+    } catch (err) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Refusing — ref update was rejected (${String(err?.message || err)}). Nothing on ${resolvedBranch} was changed. Retry the whole call.`,
+          },
+        ],
+        isError: true,
+        structuredContent: { status: 'conflict', skillName, isUpdate, filesPushed: [], issues: [], warnings },
+      };
+    }
+
+    const filesPushed = entries.map((e) => e.path);
+    const listing = filesPushed.map((p) => `- ${p}`).join('\n');
+    const summary = `Pushed "${skillName}" to ${owner}/${repo}@${resolvedBranch} as commit ${newCommitSha} (${isUpdate ? 'updated' : 'added'}).`;
+    const warnText = warnings.length ? `\n\nWarnings:\n${warnings.map((w) => `- ${w}`).join('\n')}` : '';
+    const nextSteps =
+      resolvedBranch === defaultBranch
+        ? ''
+        : `\n\nNext steps: (1) pull this back down from ref="${resolvedBranch}" to verify it round-tripped ` +
+          `correctly, (2) if that looks right, open a PR (e.g. \`gh pr create --base ${defaultBranch} --head ` +
+          `${resolvedBranch}\`) for a human reviewer to check and merge.`;
+    return {
+      content: [{ type: 'text', text: `${summary}\n\n${listing}${warnText}${nextSteps}` }],
+      structuredContent: {
+        status: 'pushed',
+        skillName,
+        isUpdate,
+        commitSha: newCommitSha,
+        commitUrl: `https://github.com/${owner}/${repo}/commit/${newCommitSha}`,
+        filesPushed,
+        meta,
+        issues: [],
+        warnings,
+      },
     };
   },
 );
