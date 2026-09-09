@@ -17,12 +17,21 @@ anything under `mcp-skill-library/`.
   `lib/validate.js` (SKILL.md frontmatter rule-checking, shared by
   `validate_skill` and `push_skill`) · `lib/localfs.js` (recursive local
   skill-folder walk for `push_skill`).
-- Required env var: `GITHUB_TOKEN` (Contents:Read on the target repo;
-  Contents:Read **and Write** if `push_skill` will be used).
-  Optional: `SKILL_LIBRARY_PATH` (default `~/.skill-library`).
-- No automated test suite exists yet (`npm test` is a placeholder that
-  always fails — don't try to make it pass, and don't delete the
-  placeholder without replacing it with a real suite).
+- Auth: the GitHub CLI (`gh`), installed and logged in (`gh auth login`)
+  on the machine running this server — no `GITHUB_TOKEN` or any other
+  token is read or accepted anywhere in this codebase. `lib/github.js`
+  shells out to `gh api ...` for every GitHub call; `ensureGhReady()`
+  checks `gh` is installed and authenticated before the first real call.
+  Reading a private skill repo requires the logged-in account to be a
+  **collaborator** on it (ask a repo admin to add you) — this is enforced
+  by GitHub itself, not by code here. `push_skill` additionally needs
+  write access on the target repo.
+  Optional env var: `SKILL_LIBRARY_PATH` (default `~/.skill-library`).
+- Test suite: `npm test` runs `node --test` against `test/*.test.js`.
+  `test/github.test.js` never shells out to a real `gh` — it swaps in a
+  fake runner via `__setGhRunner()` (exported from `lib/github.js` for
+  this purpose only). Keep using that seam for new GitHub-call tests
+  instead of mocking `child_process` directly.
 - There is no lint/typecheck script configured. At minimum, run
   `node --check index.js` and `node --check lib/<file>.js` for every
   file you touched before committing — a syntax error must never reach
@@ -153,13 +162,13 @@ this subtree — describe what changed and how you verified it manually.
 
 - Never `git push --force` to `main`. If you must rewrite a shared
   branch, use `--force-with-lease` and tell the other person first.
-- **Never commit a real `GITHUB_TOKEN` value, or any other secret.**
-  `.npmrc` and every config example in the README use the literal
-  placeholder `${GITHUB_TOKEN}` — it must stay a placeholder resolved
-  from the environment at read-time, never a real token string. If a
-  real token ever lands in a commit, say so immediately — do not
-  quietly amend it away, since removing it from history means
-  rewriting every commit after it.
+- **Never commit any secret** (a token, a key, a `.env` file with real
+  values). This codebase itself has no token to guard — auth is entirely
+  `gh auth login` on the machine running the server — but the rule still
+  applies to anything else that might land in a diff. If a real secret
+  ever lands in a commit, say so immediately — do not quietly amend it
+  away, since removing it from history means rewriting every commit
+  after it.
 - Never commit `node_modules/` or any build output.
 - Don't commit real skill content pulled from someone else's private
   repo into this repo's own history — `SKILL_LIBRARY_PATH` output is
