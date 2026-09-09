@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {
+  ensureGhReady,
   getDefaultBranch,
   getRecursiveTree,
   getBlobText,
@@ -29,26 +30,18 @@ const LIBRARY_ROOT = process.env.SKILL_LIBRARY_PATH
   ? path.resolve(process.env.SKILL_LIBRARY_PATH)
   : path.join(os.homedir(), '.skill-library');
 
-function requireToken() {
-  const token = process.env.GITHUB_TOKEN;
-  if (!token) {
-    throw new Error('GITHUB_TOKEN environment variable is not set on this machine.');
-  }
-  return token;
-}
-
 // Short-lived in-memory cache so paginated search_remote_skills calls (and a
 // follow-up pull_skill) don't re-fetch the whole repo tree every time.
 const treeCache = new Map(); // key -> { at, tree, truncated }
 const TREE_TTL_MS = 5 * 60 * 1000;
 
 async function loadTree(owner, repo, ref) {
-  const token = requireToken();
-  const resolvedRef = ref || (await getDefaultBranch(owner, repo, token));
+  await ensureGhReady();
+  const resolvedRef = ref || (await getDefaultBranch(owner, repo));
   const key = `${owner}/${repo}@${resolvedRef}`;
   const cached = treeCache.get(key);
   if (cached && Date.now() - cached.at < TREE_TTL_MS) return { ...cached, ref: resolvedRef };
-  const { tree, truncated } = await getRecursiveTree(owner, repo, resolvedRef, token);
+  const { tree, truncated } = await getRecursiveTree(owner, repo, resolvedRef);
   const entry = { at: Date.now(), tree, truncated };
   treeCache.set(key, entry);
   return { ...entry, ref: resolvedRef };
@@ -87,7 +80,6 @@ server.registerTool(
     },
   },
   async ({ owner, repo, ref, query, limit, cursor }) => {
-    const token = requireToken();
     const { tree, truncated, ref: resolvedRef } = await loadTree(owner, repo, ref);
     let dirs = skillDirsFromTree(tree);
     if (query) {
@@ -98,7 +90,7 @@ server.registerTool(
     const page = dirs.slice(offset, offset + limit);
     const items = [];
     for (const d of page) {
-      const content = await getBlobText(owner, repo, d.sha, token);
+      const content = await getBlobText(owner, repo, d.sha);
       const fm = parseFrontmatter(content) || {};
       items.push({ path: d.dir, name: fm.name || null, description: fm.description || null });
     }
@@ -148,7 +140,6 @@ server.registerTool(
     },
   },
   async ({ owner, repo, ref, skillPaths }) => {
-    const token = requireToken();
     const { tree } = await loadTree(owner, repo, ref);
     const pulled = [];
     for (const skillPath of skillPaths) {
@@ -164,7 +155,7 @@ server.registerTool(
         const rel = f.path.slice(prefix.length);
         const destFile = path.join(destRoot, rel);
         fs.mkdirSync(path.dirname(destFile), { recursive: true });
-        const text = await getBlobText(owner, repo, f.sha, token);
+        const text = await getBlobText(owner, repo, f.sha);
         fs.writeFileSync(destFile, text);
       }
       const skillMd = fs.readFileSync(path.join(destRoot, 'SKILL.md'), 'utf8');
@@ -302,7 +293,7 @@ server.registerTool(
   'skillbridge_push_skill',
   {
     description:
-      'Validate (fail-closed — refuses if invalid, no GitHub calls made) then push a local skill folder to a GitHub repo as ONE atomic commit (Git Data API: blob per file -> tree -> commit -> ref update), so a skill created locally on some agent can be published back to the shared library. Writes a per-skill .meta.json (uploadedBy/uploadedAt/updatedBy/updatedAt) in the same commit. NEVER pushes directly to the repo\'s default branch (main/master) — it always targets a feature branch (auto-named "skill/<skillName>" if you don\'t pass one), creating that branch from the current default-branch head if it doesn\'t exist yet, matching this project\'s own "never push to main without confirmation, default to a feature branch + PR" convention. The recommended full workflow for the calling agent: (1) call this tool to push to the feature branch, (2) call skillbridge_search_remote_skills/skillbridge_pull_skill with ref=<that branch> to pull it back down and verify it round-tripped correctly, (3) if that looks right, open a PR (e.g. via `gh pr create --base <default branch> --head <feature branch>`) for a human reviewer to check and merge — do not merge it yourself. IMPORTANT: ask the user for their name/email/GitHub username (the `identity` field) BEFORE calling this tool — do not guess or reuse a value from earlier context. The tool independently checks that identity against the GITHUB_TOKEN account and refuses on a mismatch unless confirmMismatch is explicitly set. Needs a GITHUB_TOKEN with Contents: Read AND Write on the target repo (Contents: Read alone, sufficient for pull-only tools, is not enough here).',
+      'Validate (fail-closed — refuses if invalid, no GitHub calls made) then push a local skill folder to a GitHub repo as ONE atomic commit (Git Data API: blob per file -> tree -> commit -> ref update), so a skill created locally on some agent can be published back to the shared library. Writes a per-skill .meta.json (uploadedBy/uploadedAt/updatedBy/updatedAt) in the same commit. NEVER pushes directly to the repo\'s default branch (main/master) — it always targets a feature branch (auto-named "skill/<skillName>" if you don\'t pass one), creating that branch from the current default-branch head if it doesn\'t exist yet, matching this project\'s own "never push to main without confirmation, default to a feature branch + PR" convention. The recommended full workflow for the calling agent: (1) call this tool to push to the feature branch, (2) call skillbridge_search_remote_skills/skillbridge_pull_skill with ref=<that branch> to pull it back down and verify it round-tripped correctly, (3) if that looks right, open a PR (e.g. via `gh pr create --base <default branch> --head <feature branch>`) for a human reviewer to check and merge — do not merge it yourself. IMPORTANT: ask the user for their name/email/GitHub username (the `identity` field) BEFORE calling this tool — do not guess or reuse a value from earlier context. The tool independently checks that identity against the account `gh` is logged in as, and refuses on a mismatch unless confirmMismatch is explicitly set. Needs the GitHub CLI (`gh`) installed and logged in (`gh auth login`) on this machine, with write access to the target repo — ask a repo admin to add you as a collaborator if you don\'t have it.',
     inputSchema: {
       skillPath: z.string().describe('Absolute local folder path to the skill to push (must pass the same checks as skillbridge_validate_skill; this tool refuses to push otherwise)'),
       owner: z.string(),
@@ -326,7 +317,7 @@ server.registerTool(
         .optional()
         .default(false)
         .describe(
-          'Set true only if the user has explicitly confirmed they intend to push under an identity that does not match the GITHUB_TOKEN account (e.g. pushing on behalf of a teammate). Leave false/omitted otherwise.',
+          'Set true only if the user has explicitly confirmed they intend to push under an identity that does not match the account `gh` is logged in as (e.g. pushing on behalf of a teammate). Leave false/omitted otherwise.',
         ),
       commitMessage: z.string().optional().describe('Override the default commit message ("feat(library): Add/Update <skillName> skill")'),
     },
@@ -343,7 +334,7 @@ server.registerTool(
           uploadedAt: z.string(),
           updatedBy: z.string(),
           updatedAt: z.string(),
-          verifiedAgainstToken: z.boolean(),
+          verifiedAgainstGhAccount: z.boolean(),
         })
         .optional(),
       issues: z.array(z.string()),
@@ -371,8 +362,8 @@ server.registerTool(
     }
     const skillName = v.name;
 
-    const token = requireToken();
-    const defaultBranch = await getDefaultBranch(owner, repo, token);
+    await ensureGhReady();
+    const defaultBranch = await getDefaultBranch(owner, repo);
     const resolvedBranch = branch || `skill/${skillName}`;
 
     // Never push straight to the default branch unless explicitly allowed —
@@ -396,7 +387,7 @@ server.registerTool(
     }
 
     // 2. Identity cross-check — before any write call.
-    const user = await getAuthenticatedUser(token);
+    const user = await getAuthenticatedUser();
     const candidates = [user.login, user.name, user.email].filter(Boolean).map((s) => s.toLowerCase());
     const claim = identity.toLowerCase();
     const matched = candidates.some((c) => c === claim || c.includes(claim) || claim.includes(c));
@@ -406,7 +397,7 @@ server.registerTool(
           {
             type: 'text',
             text:
-              `Refusing to push — identity mismatch. You said "${identity}" but GITHUB_TOKEN belongs to ` +
+              `Refusing to push — identity mismatch. You said "${identity}" but "gh" is logged in as ` +
               `login="${user.login}" name="${user.name}" email="${user.email}". Fix the identity value, ` +
               `or pass confirmMismatch:true if you're intentionally pushing on someone else's behalf.`,
           },
@@ -421,19 +412,19 @@ server.registerTool(
         },
       };
     }
-    const verifiedAgainstToken = matched;
+    const verifiedAgainstGhAccount = matched;
 
     // 3. Read current branch state — creating the feature branch (from the
     // default branch's current head) if it doesn't exist yet.
-    let baseSha = await tryGetBranchHead(owner, repo, resolvedBranch, token);
+    let baseSha = await tryGetBranchHead(owner, repo, resolvedBranch);
     let branchCreated = false;
     if (baseSha === null) {
-      baseSha = await getBranchHead(owner, repo, defaultBranch, token);
-      await createBranch(owner, repo, resolvedBranch, baseSha, token);
+      baseSha = await getBranchHead(owner, repo, defaultBranch);
+      await createBranch(owner, repo, resolvedBranch, baseSha);
       branchCreated = true;
       warnings.push(`Branch "${resolvedBranch}" did not exist — created it from "${defaultBranch}"'s current head.`);
     }
-    const { sha: baseTreeSha, tree, truncated } = await getRecursiveTree(owner, repo, baseSha, token);
+    const { sha: baseTreeSha, tree, truncated } = await getRecursiveTree(owner, repo, baseSha);
     if (truncated) warnings.push('GitHub truncated the repo tree response (repo too large for one call) — existing-skill detection may be incomplete');
 
     const existingEntries = tree.filter((e) => e.path === skillName || e.path.startsWith(`${skillName}/`));
@@ -447,7 +438,7 @@ server.registerTool(
       const metaEntry = existingEntries.find((e) => e.path === `${skillName}/.meta.json`);
       if (metaEntry) {
         try {
-          const existingMetaText = await getBlobText(owner, repo, metaEntry.sha, token);
+          const existingMetaText = await getBlobText(owner, repo, metaEntry.sha);
           const existingMeta = JSON.parse(existingMetaText);
           if (existingMeta.uploadedBy) uploadedBy = existingMeta.uploadedBy;
           if (existingMeta.uploadedAt) uploadedAt = existingMeta.uploadedAt;
@@ -458,25 +449,25 @@ server.registerTool(
         warnings.push('no prior .meta.json found for this existing skill; upload metadata backfilled with this push\'s identity/time');
       }
     }
-    const meta = { uploadedBy, uploadedAt, updatedBy: identity, updatedAt: nowIso, verifiedAgainstToken };
+    const meta = { uploadedBy, uploadedAt, updatedBy: identity, updatedAt: nowIso, verifiedAgainstGhAccount };
 
     // 5. Blob every real file, plus the synthesized .meta.json.
     const files = walkSkillFiles(skillPath);
     const entries = [];
     for (const f of files) {
       const buf = fs.readFileSync(f.absolutePath);
-      const sha = await createBlob(owner, repo, buf.toString('base64'), token);
+      const sha = await createBlob(owner, repo, buf.toString('base64'));
       entries.push({ path: `${skillName}/${f.relativePath}`, mode: '100644', type: 'blob', sha });
     }
-    const metaSha = await createBlob(owner, repo, Buffer.from(JSON.stringify(meta, null, 2)).toString('base64'), token);
+    const metaSha = await createBlob(owner, repo, Buffer.from(JSON.stringify(meta, null, 2)).toString('base64'));
     entries.push({ path: `${skillName}/.meta.json`, mode: '100644', type: 'blob', sha: metaSha });
 
     // 6. Tree -> commit -> (re-check) -> ref update.
-    const newTreeSha = await createTree(owner, repo, baseTreeSha, entries, token);
+    const newTreeSha = await createTree(owner, repo, baseTreeSha, entries);
     const message = commitMessage || `feat(library): ${isUpdate ? 'Update' : 'Add'} ${skillName} skill`;
-    const newCommitSha = await createCommit(owner, repo, message, newTreeSha, baseSha, token);
+    const newCommitSha = await createCommit(owner, repo, message, newTreeSha, baseSha);
 
-    const currentSha = await getBranchHead(owner, repo, resolvedBranch, token);
+    const currentSha = await getBranchHead(owner, repo, resolvedBranch);
     if (currentSha !== baseSha) {
       return {
         content: [
@@ -501,7 +492,7 @@ server.registerTool(
     }
 
     try {
-      await updateRef(owner, repo, resolvedBranch, newCommitSha, token);
+      await updateRef(owner, repo, resolvedBranch, newCommitSha);
     } catch (err) {
       return {
         content: [
