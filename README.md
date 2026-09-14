@@ -27,7 +27,7 @@ server", the exact steps are below — no guessing required.
   from**, if that repo is private — ask a repo admin to add your GitHub
   account. This is enforced by GitHub itself (a non-collaborator's `gh`
   session simply can't read a private repo), not by anything in this code.
-  `mcpskilllib_push_skill` additionally needs **write** access on the target
+  `push_skill` additionally needs **write** access on the target
   repo.
 - **If this machine ever ran an older, token-based version of this server:
   unset `GITHUB_TOKEN` (and `GH_TOKEN`) from its environment.** `gh` uses
@@ -193,7 +193,7 @@ Install and register the "mcp-skill-lib" MCP server
 8. Tell me to restart you (or reload MCP servers) so the new config
    is picked up.
 
-9. Once restarted, call the `mcpskilllib_detect_agents` tool once and
+9. Once restarted, call the `detect_agents` tool once and
    report back which agent locations were found on this machine, to
    confirm the server is actually running.
 ```
@@ -202,14 +202,14 @@ Install and register the "mcp-skill-lib" MCP server
 
 | Tool | Does |
 |---|---|
-| `mcpskilllib_search_remote_skills` | Find `SKILL.md` folders in a GitHub repo by path substring — no full clone, paginated |
-| `mcpskilllib_search_all_sources` | Same search, but across every repo listed in `sources.json` (shared, versioned in this package) plus `sources.local.json` (optional, personal, under `SKILL_LIBRARY_PATH`) — one call instead of calling `mcpskilllib_search_remote_skills` once per repo |
-| `mcpskilllib_pull_skill` | Fetch specific skill folders and copy them into the local skill library |
-| `mcpskilllib_detect_agents` | Detect which agents (Claude Code, Codex, OpenCode, Cursor, Gemini CLI, GitHub Copilot) have a skills folder on this machine |
-| `mcpskilllib_deploy_skill` | Symlink a pulled skill into every detected agent's skills folder (falls back to a copy if symlinking isn't available). Takes an optional `scopes` filter (`global`/`project`) — the calling agent should ask the user which scope(s) they want before calling this, the same way Claude Code's own plugin installer asks "user scope" vs "project scope" |
-| `mcpskilllib_remove_skill` | Undo `deploy_skill` — remove the symlinks from every agent's skill folder, and (unless `keepInLibrary: true`) delete the skill from `SKILL-LIB/` too. Only ever removes a symlink that actually resolves back to this skill; a same-named real folder is left untouched. Permanent, no undo — the calling agent should confirm with the user first |
-| `mcpskilllib_validate_skill` | Check a local skill folder against the same 4 rules SKILL-LIB's CI lint enforces (frontmatter parses, only name/description keys, name format/length/folder-match, non-empty description) — no network, safe to call repeatedly |
-| `mcpskilllib_push_skill` | Validate (fail-closed) then push a local skill folder to a GitHub repo as one atomic commit via the Git Data API, with an identity cross-check against the account `gh` is logged in as, and a per-skill `.meta.json` tracking uploadedBy/uploadedAt/updatedBy/updatedAt |
+| `search_remote_skills` | Find `SKILL.md` folders in a GitHub repo by path substring — no full clone, paginated |
+| `search_all_sources` | Same search, but across every repo listed in `sources.json` (shared, versioned in this package) plus `sources.local.json` (optional, personal, under `SKILL_LIBRARY_PATH`) — one call instead of calling `search_remote_skills` once per repo |
+| `pull_skill` | Fetch specific skill folders and copy them into the local skill library |
+| `detect_agents` | Detect which agents (Claude Code, Codex, OpenCode, Cursor, Gemini CLI, GitHub Copilot) have a skills folder on this machine |
+| `deploy_skill` | Symlink a pulled skill into every detected agent's skills folder (falls back to a copy if symlinking isn't available). Takes an optional `scopes` filter (`global`/`project`) — the calling agent should ask the user which scope(s) they want before calling this, the same way Claude Code's own plugin installer asks "user scope" vs "project scope" |
+| `remove_skill` | Undo `deploy_skill` — remove the symlinks from every agent's skill folder, and (unless `keepInLibrary: true`) delete the skill from `SKILL-LIB/` too. Only ever removes a symlink that actually resolves back to this skill; a same-named real folder is left untouched. Permanent, no undo — the calling agent should confirm with the user first |
+| `validate_skill` | Check a local skill folder against the same 4 rules SKILL-LIB's CI lint enforces (frontmatter parses, only name/description keys, name format/length/folder-match, non-empty description) — no network, safe to call repeatedly |
+| `push_skill` | Validate (fail-closed) then push a local skill folder to a GitHub repo as one atomic commit via the Git Data API, with an identity cross-check against the account `gh` is logged in as, and a per-skill `.meta.json` tracking uploadedBy/uploadedAt/updatedBy/updatedAt |
 
 See [`docs/USAGE.md`](docs/USAGE.md) for a step-by-step walkthrough of each
 tool (real input/output examples) and a troubleshooting table.
@@ -230,14 +230,14 @@ covers each one:
 
 ### Recommended workflow for publishing a locally-created skill
 
-`mcpskilllib_push_skill` never pushes straight to the repo's default branch
+`push_skill` never pushes straight to the repo's default branch
 (`main`/`master`) — it always targets a feature branch (auto-named
 `skill/<skillName>` if you don't pass one), creating it from the current
 default-branch head if it doesn't exist yet. The full recommended flow:
 
-1. **Push** — `mcpskilllib_push_skill` to the feature branch.
-2. **Pull it back down to verify** — `mcpskilllib_search_remote_skills` /
-   `mcpskilllib_pull_skill` with `ref` set to that same branch, to confirm
+1. **Push** — `push_skill` to the feature branch.
+2. **Pull it back down to verify** — `search_remote_skills` /
+   `pull_skill` with `ref` set to that same branch, to confirm
    the skill round-tripped correctly (not just trusting the local copy).
 3. **Open a PR** — e.g. `gh pr create --base <default branch> --head
    skill/<skillName>` — once step 2 looks right.
@@ -257,7 +257,7 @@ escape hatch, not the default path.
 - `SKILL_LIBRARY_PATH` (optional) — where `pull_skill`/`deploy_skill` read and
   write skill content locally. Defaults to `~/.skill-library`.
 - `sources.json` (in this package) — the shared list of repos
-  `mcpskilllib_search_all_sources` searches across. Add a repo by opening a
+  `search_all_sources` searches across. Add a repo by opening a
   PR to this file:
   ```json
   { "sources": [{ "owner": "your-org", "repo": "your-skill-repo", "note": "what this is" }] }

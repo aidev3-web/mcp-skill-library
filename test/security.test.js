@@ -47,7 +47,7 @@ test('remove_skill refuses a traversing skillName instead of deleting outside th
   const client = await connect(lib);
   try {
     for (const skillName of ['../important-user-files', '..\\important-user-files', victim, 'a/b', '..', '.']) {
-      const res = await client.callTool({ name: 'mcpskilllib_remove_skill', arguments: { skillName } });
+      const res = await client.callTool({ name: 'remove_skill', arguments: { skillName } });
       assert.equal(res.isError, true, `expected refusal for ${JSON.stringify(skillName)}`);
       assert.match(textOf(res), /Invalid skillName/);
     }
@@ -63,7 +63,7 @@ test('deploy_skill refuses a traversing skillName', async () => {
   const client = await connect(lib);
   try {
     const res = await client.callTool({
-      name: 'mcpskilllib_deploy_skill',
+      name: 'deploy_skill',
       arguments: { skillName: '../../Documents' },
     });
     assert.equal(res.isError, true);
@@ -89,7 +89,7 @@ test('remove_skill keeps the library folder while the skill is still deployed so
     // Asked to undeploy the GLOBAL scope only — the project-scope link stays,
     // so deleting the library folder here would leave it dangling.
     const res = await client.callTool({
-      name: 'mcpskilllib_remove_skill',
+      name: 'remove_skill',
       arguments: { skillName: 'demo-skill', cwd: project, scopes: ['global'] },
     });
     assert.equal(res.structuredContent.libraryRemoved, false);
@@ -98,7 +98,7 @@ test('remove_skill keeps the library folder while the skill is still deployed so
 
     // Now undeploy everything: the link goes, and the folder may be deleted.
     const res2 = await client.callTool({
-      name: 'mcpskilllib_remove_skill',
+      name: 'remove_skill',
       arguments: { skillName: 'demo-skill', cwd: project },
     });
     assert.equal(res2.structuredContent.libraryRemoved, true);
@@ -121,7 +121,7 @@ test('push_skill refuses a skill folder containing credential files, before any 
   const client = await connect(path.join(root, 'lib'));
   try {
     const res = await client.callTool({
-      name: 'mcpskilllib_push_skill',
+      name: 'push_skill',
       arguments: { skillPath: skill, owner: 'aidev3-web', repo: 'SKILL-LIB', identity: 'test' },
     });
     assert.equal(res.isError, true);
@@ -191,7 +191,7 @@ test('a malformed sources.local.json names the offending file instead of leaking
 
   const client = await connect(lib);
   try {
-    const res = await client.callTool({ name: 'mcpskilllib_search_all_sources', arguments: { query: 'x' } });
+    const res = await client.callTool({ name: 'search_all_sources', arguments: { query: 'x' } });
     assert.equal(res.isError, true);
     assert.match(textOf(res), /sources\.local\.json/);
   } finally {
