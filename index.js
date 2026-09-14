@@ -25,7 +25,7 @@ import { parseFrontmatter } from './lib/frontmatter.js';
 import { detectAgents, deploySkill, removeSkill, findRemainingDeployments } from './lib/agents.js';
 import { validateSkillFolder } from './lib/validate.js';
 import { walkSkillFiles, findSecretFiles } from './lib/localfs.js';
-import { computeStaticSignals, buildJudgePrompt } from './lib/benchmark.js';
+import { computeStaticSignals, buildTestPlan } from './lib/benchmark.js';
 
 // Independent of where this tool's own code lives — set SKILL_LIBRARY_PATH to
 // point at wherever pulled skills should be stored locally.
@@ -518,7 +518,7 @@ server.registerTool(
   'benchmark_skill',
   {
     description:
-      `Judge a local skill folder's quality against this project's 6-layer rubric (Layer 0 Static, 1 Trigger, 2 Outcome, 3 Stability, 4 Edge case & guardrail, 5 Scope — see skill-evaluation-kit.html). This tool only computes Layer 0 mechanically (description length, vague phrasing, module count against the 2-3-module complexity contract) — it cannot run the skill, so it returns the skill's own content plus a rubric prompt asking YOU (the calling agent) to score Layers 1-5 by reading and reasoning about it, since only a reader that understands the skill's intent can judge those. Call this BEFORE push_skill and pass its result back as push_skill's \`benchmark\` argument — push_skill refuses to publish (status "benchmark-too-low") if Layer 0 fails or the total score is below ${MIN_BENCHMARK_SCORE}/100. No network calls.`,
+      `Judge a local skill folder's quality against this project's 6-layer rubric (Layer 0 Static, 1 Trigger, 2 Outcome, 3 Stability, 4 Edge case & guardrail, 5 Scope — see skill-evaluation-kit.html). This tool only computes Layer 0 mechanically (description length, vague phrasing, module count against the 2-3-module complexity contract) — it cannot run the skill or spawn sessions itself, so it returns the skill's content plus a TEST PLAN: Layers 1-3 (Trigger/Outcome/Stability) require YOU to actually spawn fresh, no-prior-context sessions (your own Agent/Task tooling) and observe real behavior — a self-rated guess is not accepted, push_skill's gate checks concrete boolean evidence fields, not a bare number. Layers 4-5 are read-and-judge, no session spawning needed. Call this BEFORE push_skill and pass the results back as push_skill's \`benchmark\` argument — push_skill refuses to publish (status "benchmark-too-low") if Layer 0 fails, any of the Layer 1-3 evidence fields show a failed test, or the total score is below ${MIN_BENCHMARK_SCORE}/100. No network calls from this tool itself.`,
     inputSchema: {
       skillPath: z.string().describe('Absolute local folder path to the skill to benchmark'),
     },
@@ -528,7 +528,7 @@ server.registerTool(
       layer0Issues: z.array(z.string()),
       moduleCount: z.number(),
       descriptionLength: z.number(),
-      judgePrompt: z.string(),
+      testPlan: z.string(),
     },
   },
   async ({ skillPath }) => {
@@ -536,19 +536,19 @@ server.registerTool(
       return { content: [{ type: 'text', text: `Not a directory: ${skillPath}` }], isError: true };
     }
     const staticSignals = computeStaticSignals(skillPath);
-    const judgePrompt = buildJudgePrompt(skillPath, staticSignals);
+    const testPlan = buildTestPlan(skillPath, staticSignals);
     const layer0Summary = staticSignals.passed
       ? 'Layer 0 (Static): passed.'
       : `Layer 0 (Static): FAILED —\n${staticSignals.issues.map((i) => `- ${i}`).join('\n')}`;
     return {
-      content: [{ type: 'text', text: `${layer0Summary}\n\n${judgePrompt}` }],
+      content: [{ type: 'text', text: `${layer0Summary}\n\n${testPlan}` }],
       structuredContent: {
         skillPath,
         layer0Passed: staticSignals.passed,
         layer0Issues: staticSignals.issues,
         moduleCount: staticSignals.moduleCount,
         descriptionLength: staticSignals.descriptionLength,
-        judgePrompt,
+        testPlan,
       },
     };
   },
@@ -619,12 +619,31 @@ server.registerTool(
       benchmark: z
         .object({
           layer0Passed: z.boolean(),
+          trigger: z.object({
+            positivePrompt: z.string(),
+            positiveFired: z.boolean(),
+            negativePrompt: z.string(),
+            negativeFired: z.boolean(),
+            sessionEvidence: z.string(),
+          }),
+          outcome: z.object({
+            withSkillResult: z.string(),
+            withoutSkillResult: z.string(),
+            skillHelped: z.boolean(),
+          }),
+          stability: z.object({
+            runs: z.number().min(3),
+            consistent: z.boolean(),
+            notes: z.string(),
+          }),
+          edgeCase: z.object({ score: z.number().min(0).max(20), notes: z.string() }),
+          scope: z.object({ score: z.number().min(0).max(20), notes: z.string() }),
           score: z.number().min(0).max(100),
           summary: z.string(),
           weakLayers: z.array(z.string()).optional(),
         })
         .describe(
-          `Result of calling benchmark_skill on this same skillPath first, judged by you against the 6-layer rubric. Required — this tool refuses to push (status "benchmark-too-low") if layer0Passed is false or score is below ${MIN_BENCHMARK_SCORE}. There is no override flag; fix the skill and re-benchmark instead.`,
+          `Result of calling benchmark_skill on this same skillPath first and executing its test plan for real — Layers 1-3 (trigger/outcome/stability) require actually spawning fresh sessions and reporting what happened, not a guessed score. Required — this tool refuses to push (status "benchmark-too-low") if layer0Passed is false, trigger.positiveFired is false, trigger.negativeFired is true, outcome.skillHelped is false, stability.runs is under 3, stability.consistent is false, or the total score is below ${MIN_BENCHMARK_SCORE}. There is no override flag; fix the skill and re-benchmark instead.`,
         ),
     },
     outputSchema: {
@@ -668,13 +687,27 @@ server.registerTool(
     }
     const skillName = v.name;
 
-    // 1a. Benchmark gate — also before any GitHub call. Fails closed if the
-    // caller skipped benchmark_skill's Layer 0 result or the score is below
-    // the threshold. No override flag: a low-quality skill gets fixed and
-    // re-benchmarked, not force-pushed anyway.
-    if (!benchmark.layer0Passed || benchmark.score < MIN_BENCHMARK_SCORE) {
+    // 1a. Benchmark gate — also before any GitHub call. Fails closed on
+    // Layer 0, on any Layer 1-3 evidence field showing a failed real test
+    // (not just a low total score), or on the score threshold. No override
+    // flag: a low-quality or unverified skill gets fixed and re-benchmarked,
+    // not force-pushed anyway.
+    const benchmarkFailed =
+      !benchmark.layer0Passed ||
+      !benchmark.trigger.positiveFired ||
+      benchmark.trigger.negativeFired ||
+      !benchmark.outcome.skillHelped ||
+      benchmark.stability.runs < 3 ||
+      !benchmark.stability.consistent ||
+      benchmark.score < MIN_BENCHMARK_SCORE;
+    if (benchmarkFailed) {
       const reasons = [];
       if (!benchmark.layer0Passed) reasons.push('Layer 0 (Static) did not pass');
+      if (!benchmark.trigger.positiveFired) reasons.push('Layer 1 (Trigger): the positive test prompt did not actually fire the skill');
+      if (benchmark.trigger.negativeFired) reasons.push('Layer 1 (Trigger): the negative test prompt fired the skill when it should not have');
+      if (!benchmark.outcome.skillHelped) reasons.push('Layer 2 (Outcome): the with-skill session did not outperform the without-skill session');
+      if (benchmark.stability.runs < 3) reasons.push('Layer 3 (Stability): fewer than 3 runs were tested');
+      if (!benchmark.stability.consistent) reasons.push('Layer 3 (Stability): the 3 runs were not consistent');
       if (benchmark.score < MIN_BENCHMARK_SCORE) reasons.push(`score ${benchmark.score}/100 is below the ${MIN_BENCHMARK_SCORE}/100 minimum`);
       return {
         content: [
