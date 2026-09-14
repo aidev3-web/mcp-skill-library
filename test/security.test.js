@@ -380,3 +380,36 @@ test('push_skill refuses when 3 stability runs were tested but were inconsistent
     await client.close();
   }
 });
+
+test('benchmark_skill writes an HTML report as a sibling of the skill folder, not inside it', async () => {
+  const root = sandbox('benchmark-report');
+  const skill = path.join(root, 'lib', 'reported-skill');
+  fs.mkdirSync(skill, { recursive: true });
+  fs.writeFileSync(
+    path.join(skill, 'SKILL.md'),
+    '---\nname: reported-skill\ndescription: A concretely-scoped skill used to test benchmark_skill report generation.\n---\n\nBody.\n',
+  );
+
+  const client = await connect(path.join(root, 'lib'));
+  try {
+    const call1 = await client.callTool({ name: 'benchmark_skill', arguments: { skillPath: skill } });
+    assert.ok(call1.structuredContent.testPlan, 'first call (no results) should return a test plan');
+    assert.equal(call1.structuredContent.reportPath, undefined);
+
+    const call2 = await client.callTool({
+      name: 'benchmark_skill',
+      arguments: { skillPath: skill, results: PASSING_BENCHMARK },
+    });
+    assert.equal(call2.structuredContent.overallPassed, true);
+    const reportPath = call2.structuredContent.reportPath;
+    assert.equal(reportPath, `${skill}.benchmark-report.html`);
+    assert.ok(fs.existsSync(reportPath), 'report file must actually exist');
+    assert.ok(!fs.existsSync(path.join(skill, path.basename(reportPath))), 'report must not be written inside the skill folder');
+
+    const html = fs.readFileSync(reportPath, 'utf8');
+    assert.match(html, /PASS — ready to push/);
+    assert.match(html, /reported-skill/);
+  } finally {
+    await client.close();
+  }
+});
