@@ -40,9 +40,9 @@ mcp-skill-library/
 │   │                       #     plus findRemainingDeployments()
 │   ├── validate.js          #   SKILL.md format validation rules (shared by
 │   │                       #     validate_skill and push_skill's fail-closed gate)
-│   ├── benchmark.js         #   Layer 0 (Static) mechanical checks + the
-│   │                       #     rubric prompt for benchmark_skill / push_skill's
-│   │                       #     benchmark gate (see skill-evaluation-kit.html)
+│   ├── benchmark.js         #   Layer 0 (Static) mechanical checks, the test
+│   │                       #     plan for benchmark_skill's Layers 1-5, and
+│   │                       #     the HTML report writer (see skill-evaluation-kit.html)
 │   └── localfs.js           #   Recursive local skill-folder walk + credential
 │                           #     sweep (both for push_skill)
 └── test/                   # node:test
@@ -105,12 +105,21 @@ is wrong — not the test.
 - **`push_skill` runs `findSecretFiles()` before its first GitHub call**
   and fails closed. No override flag — don't add one.
 - **`push_skill` requires a `benchmark` argument** (from calling
-  `benchmark_skill` first) and refuses (`benchmark-too-low`) if Layer 0
-  failed or the score is under `MIN_BENCHMARK_SCORE` (70). This is a
-  judgment call the *calling agent* makes by reading the skill — this
-  server cannot run a skill to score it, so don't try to make
-  `benchmark_skill` self-contained; it hands off Layers 1-5 on purpose.
-  No override flag here either.
+  `benchmark_skill` first, twice) and refuses (`benchmark-too-low`) if
+  Layer 0 failed, or any Layer 1-3 evidence field
+  (`trigger.positiveFired`/`negativeFired`, `outcome.skillHelped`,
+  `stability.runs`/`consistent`) shows a failed real test, or the score
+  is under `MIN_BENCHMARK_SCORE` (70). **Layers 1-3 require real
+  evidence from fresh sessions the calling agent actually spawned** — a
+  self-rated 0-20 guess was tried first and rejected as unfalsifiable
+  (see the commit that redesigned this). Don't relax the schema back to
+  a bare number for those 3 layers. Layers 4-5 stay read-and-judge; this
+  server genuinely cannot run a skill to test it, so don't try to make
+  `benchmark_skill` self-contained for 1-3 either. `benchmark_skill`'s
+  second call (with `results`) writes `<skillPath>.benchmark-report.html`
+  as a sibling of the skill folder — keep it a sibling, not a file
+  inside the skill folder, or it would get pushed as skill content.
+  No override flag anywhere in this gate.
 - **`owner`/`repo` reach an API path only via `repoPath()`** in
   `lib/github.js`. Never interpolate them into a `ghApi()` path directly.
 - **Caches stay bounded**: `treeCache` (size-capped, TTL) and
