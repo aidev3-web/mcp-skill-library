@@ -76,6 +76,14 @@
   .okrow .v{color:var(--green);flex:none;font-weight:700}
   .tip-card code{background:var(--chip);border-radius:4px;padding:0 4px;font-size:.9em}
 
+  .example-wrap{overflow-x:auto}
+  .example-table{width:100%;border-collapse:collapse;font-size:.8rem}
+  .example-table th,.example-table td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--dash);vertical-align:top}
+  .example-table th{color:var(--sub);font-size:.68rem;text-transform:uppercase;letter-spacing:.03em;font-weight:700}
+  .example-table tr:last-child td{border-bottom:none}
+  .example-table code{background:var(--chip);border-radius:4px;padding:1px 6px;font-family:ui-monospace,monospace}
+  .example-table .status-ok{display:inline-block;background:var(--green-soft);color:var(--green);border:1px solid var(--green);border-radius:999px;padding:1px 9px;font-size:.72rem;font-weight:700;white-space:nowrap}
+
   .closing{text-align:center;padding:26px 40px;border:2px solid var(--orange);border-radius:16px;background:var(--card)}
   .closing p{margin:6px 0;font-size:.95rem}
   .closing .big{font-weight:700;font-size:1.05rem;color:#333}
@@ -369,6 +377,32 @@ commitUrl: github.com/.../commit/a1b2c3d</div>
         <div class="badrow"><span class="x" data-vi>Nguyên nhân</span><span class="x" data-en>Cause</span> <span data-vi>Còn agent/scope khác đang symlink tới skill đó</span><span data-en>Another agent/scope still symlinks to that skill</span></div>
         <div class="okrow"><span class="v" data-vi>Xử lý</span><span class="v" data-en>Fix</span> <span data-vi>Bỏ filter scopes/targets để gỡ hết, hoặc xóa tay</span><span data-en>Drop the scopes/targets filter to remove them all, or delete by hand</span></div>
       </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2><span data-vi>VÍ DỤ THẬT — SKILL VỪA CÀI BẰNG MCP-SKILL-LIB</span><span data-en>REAL EXAMPLE — SKILLS JUST INSTALLED WITH MCP-SKILL-LIB</span></h2>
+    <div class="section-sub"><span data-vi>6 skill này được kéo về và triển khai thật bằng đúng quy trình case 1 ở trên, không phải ví dụ giả</span><span data-en>These 6 skills were pulled and deployed for real using case 1's exact flow above, not a mock example</span></div>
+    <div class="example-wrap">
+      <table class="example-table">
+        <thead><tr>
+          <th><span data-vi>Skill</span><span data-en>Skill</span></th>
+          <th><span data-vi>Vai trò</span><span data-en>Role</span></th>
+          <th><span data-vi>Trạng thái</span><span data-en>Status</span></th>
+        </tr></thead>
+        <tbody>
+          <tr><td><code>html</code></td><td><span data-vi>Router chính — tạo/redesign HTML artifact tổng quát (báo cáo, landing page, demo...)</span><span data-en>Main router — creates/redesigns general HTML artifacts (reports, landing pages, demos...)</span></td><td><span class="status-ok">deployed</span></td></tr>
+          <tr><td><code>html-plan</code></td><td><span data-vi>Chuyên biệt cho HTML dạng kế hoạch, giữ đúng nội dung gốc, cải thiện thứ tự/phân cấp</span><span data-en>Specialist for HTML plans — preserves source content, improves hierarchy/sequence</span></td><td><span class="status-ok">deployed</span></td></tr>
+          <tr><td><code>html-diagram</code></td><td><span data-vi>Chuyên biệt cho sơ đồ HTML thể hiện quan hệ, trình tự, cấu trúc</span><span data-en>Specialist for HTML diagrams showing relationships, sequence, structure</span></td><td><span class="status-ok">deployed</span></td></tr>
+          <tr><td><code>html-prototype</code></td><td><span data-vi>Chuyên biệt cho mockup/prototype tương tác, độ hoàn thiện cao</span><span data-en>Specialist for polished, interactive mockups/prototypes</span></td><td><span class="status-ok">deployed</span></td></tr>
+          <tr><td><code>html-wireframe</code></td><td><span data-vi>Chuyên biệt cho wireframe độ trung thực thấp, kiểm tra luồng trước khi thiết kế</span><span data-en>Specialist for low-fidelity wireframes, testing flow before visual design</span></td><td><span class="status-ok">deployed</span></td></tr>
+          <tr><td><code>design-artifact</code></td><td><span data-vi>Nguyên tắc thiết kế &amp; định hướng sáng tạo dùng chung cho cả nhóm html-* ở trên</span><span data-en>Design principles &amp; creative direction shared by all the html-* skills above</span></td><td><span class="status-ok">deployed</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="section-sub" style="margin-top:12px">
+      <span data-vi>Nguồn: <code>github.com/plannotator/effective-html</code> · Đích: Claude Code (global) · Lệnh thật đã chạy: <code>pull_skill</code> → <code>detect_agents</code> → <code>deploy_skill</code> — không cần restart, agent đang chạy đã nhận ngay 6 skill này</span>
+      <span data-en>Source: <code>github.com/plannotator/effective-html</code> · Target: Claude Code (global) · Real commands run: <code>pull_skill</code> → <code>detect_agents</code> → <code>deploy_skill</code> — no restart needed, the running agent picked up all 6 skills immediately</span>
     </div>
   </div>
 
