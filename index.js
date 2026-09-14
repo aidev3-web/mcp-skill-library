@@ -116,10 +116,10 @@ function loadSources() {
   return sources;
 }
 
-const server = new McpServer({ name: 'skill-bridge', version: '0.1.0' });
+const server = new McpServer({ name: 'mcp-skill-lib', version: '0.1.0' });
 
 server.registerTool(
-  'skillbridge_search_remote_skills',
+  'mcpskilllib_search_remote_skills',
   {
     description:
       'Find Agent Skills (SKILL.md folders) in a GitHub repo by folder-path substring, without downloading the repo. Returns name+description only for the matched page. Use this before pull_skill.',
@@ -176,10 +176,10 @@ server.registerTool(
 );
 
 server.registerTool(
-  'skillbridge_search_all_sources',
+  'mcpskilllib_search_all_sources',
   {
     description:
-      'Search for skills across every repo listed in sources.json (shared with the team, edit via a PR to this package) plus sources.local.json (optional, personal repos, lives in SKILL_LIBRARY_PATH and is never committed) — one call instead of calling skillbridge_search_remote_skills once per repo. Use this when you don\'t know which specific repo a skill lives in; use skillbridge_search_remote_skills instead when you already know the exact repo.',
+      'Search for skills across every repo listed in sources.json (shared with the team, edit via a PR to this package) plus sources.local.json (optional, personal repos, lives in SKILL_LIBRARY_PATH and is never committed) — one call instead of calling mcpskilllib_search_remote_skills once per repo. Use this when you don\'t know which specific repo a skill lives in; use mcpskilllib_search_remote_skills instead when you already know the exact repo.',
     inputSchema: {
       query: z.string().optional().describe('Case-insensitive substring to match against the skill folder path (cheap, no content fetch). Omit to list every skill from every source.'),
       limit: z.number().int().min(1).max(200).default(50).describe('Max results to return in total, across all sources combined'),
@@ -268,10 +268,10 @@ server.registerTool(
 );
 
 server.registerTool(
-  'skillbridge_pull_skill',
+  'mcpskilllib_pull_skill',
   {
     description:
-      'Fetch specific skill folders (as returned by skillbridge_search_remote_skills) from a GitHub repo — only those folders, not the whole repo — and copy them into the local canonical skill library (SKILL-LIB/).',
+      'Fetch specific skill folders (as returned by mcpskilllib_search_remote_skills) from a GitHub repo — only those folders, not the whole repo — and copy them into the local canonical skill library (SKILL-LIB/).',
     inputSchema: {
       owner: z.string(),
       repo: z.string(),
@@ -362,7 +362,7 @@ server.registerTool(
 );
 
 server.registerTool(
-  'skillbridge_detect_agents',
+  'mcpskilllib_detect_agents',
   {
     description:
       'Detect which agent CLIs (Claude Code, Codex, OpenCode, Cursor, Gemini CLI, GitHub Copilot) are installed on THIS machine, at global and project scope, by checking their known skill directories.',
@@ -390,12 +390,12 @@ server.registerTool(
 );
 
 server.registerTool(
-  'skillbridge_deploy_skill',
+  'mcpskilllib_deploy_skill',
   {
     description:
       'Symlink (junction on Windows) a skill already pulled into SKILL-LIB/ into every detected agent skill directory on this machine (Claude Code, Codex, OpenCode, Cursor, Gemini CLI, GitHub Copilot), so any agent here can use it. Falls back to copying if symlinking is unavailable in this environment. Never overwrites an existing non-symlink folder. IMPORTANT for the calling agent: before invoking this tool, ask the user which scope(s) to install into — "global" (available to every project on this machine) vs "project" (only this project, and shared with collaborators if committed) — the same way Claude Code\'s own plugin installer asks "Install for you (user scope)" vs "Install for all collaborators on this repository (project scope)". Do not default to deploying to every detected location without asking first, unless the user has already told you which scope(s) they want.',
     inputSchema: {
-      skillName: z.string().describe('Folder name under SKILL-LIB/, as returned by skillbridge_pull_skill'),
+      skillName: z.string().describe('Folder name under SKILL-LIB/, as returned by mcpskilllib_pull_skill'),
       cwd: z.string().optional(),
       targets: z.array(z.enum(['claude-code', 'codex', 'opencode', 'cursor', 'gemini', 'copilot'])).optional().describe('Restrict to these agents only (default: all detected)'),
       scopes: z.array(z.enum(['global', 'project'])).optional().describe('Restrict to these scope(s) only (default: both). Ask the user which scope(s) they want before calling this tool — see the tool description.'),
@@ -411,7 +411,7 @@ server.registerTool(
     }
     if (!fs.existsSync(path.join(sourceDir, 'SKILL.md'))) {
       return {
-        content: [{ type: 'text', text: `No SKILL.md found at ${sourceDir}. Run skillbridge_pull_skill first.` }],
+        content: [{ type: 'text', text: `No SKILL.md found at ${sourceDir}. Run mcpskilllib_pull_skill first.` }],
         isError: true,
       };
     }
@@ -438,12 +438,12 @@ server.registerTool(
 );
 
 server.registerTool(
-  'skillbridge_remove_skill',
+  'mcpskilllib_remove_skill',
   {
     description:
-      'Undo skillbridge_deploy_skill, and optionally delete the skill from SKILL-LIB/ too — the two-step manual cleanup (remove the symlink from every agent\'s skill folder, then delete the source folder) that this project previously had no tool for. Only ever removes a symlink that actually resolves back to this skill\'s SKILL-LIB folder — a same-named real folder, or a symlink pointing somewhere else, is left untouched and reported as skipped rather than deleted. IMPORTANT for the calling agent: this permanently deletes local files with no undo (SKILL_LIBRARY_PATH is not git-tracked) — confirm with the user which skill and whether to also delete it from SKILL-LIB/ (keepInLibrary) before calling this, the same way skillbridge_deploy_skill requires confirming scope first.',
+      'Undo mcpskilllib_deploy_skill, and optionally delete the skill from SKILL-LIB/ too — the two-step manual cleanup (remove the symlink from every agent\'s skill folder, then delete the source folder) that this project previously had no tool for. Only ever removes a symlink that actually resolves back to this skill\'s SKILL-LIB folder — a same-named real folder, or a symlink pointing somewhere else, is left untouched and reported as skipped rather than deleted. IMPORTANT for the calling agent: this permanently deletes local files with no undo (SKILL_LIBRARY_PATH is not git-tracked) — confirm with the user which skill and whether to also delete it from SKILL-LIB/ (keepInLibrary) before calling this, the same way mcpskilllib_deploy_skill requires confirming scope first.',
     inputSchema: {
-      skillName: z.string().describe('Folder name under SKILL-LIB/, as returned by skillbridge_pull_skill or already present locally'),
+      skillName: z.string().describe('Folder name under SKILL-LIB/, as returned by mcpskilllib_pull_skill or already present locally'),
       cwd: z.string().optional(),
       targets: z.array(z.enum(['claude-code', 'codex', 'opencode', 'cursor', 'gemini', 'copilot'])).optional().describe('Restrict to these agents only (default: all detected)'),
       scopes: z.array(z.enum(['global', 'project'])).optional().describe('Restrict to these scope(s) only (default: both)'),
@@ -512,7 +512,7 @@ server.registerTool(
 );
 
 server.registerTool(
-  'skillbridge_validate_skill',
+  'mcpskilllib_validate_skill',
   {
     description:
       'Check a local skill folder against the same 4 rules SKILL-LIB\'s CI lint enforces (frontmatter parses, only name/description keys allowed, name format/length/folder-match, non-empty description). No network calls — safe to call repeatedly. This is a fast local approximation, not a substitute for the real CI lint job: the frontmatter reader used here is not a full YAML parser.',
@@ -543,12 +543,12 @@ server.registerTool(
 );
 
 server.registerTool(
-  'skillbridge_push_skill',
+  'mcpskilllib_push_skill',
   {
     description:
-      'Validate (fail-closed — refuses if invalid, no GitHub calls made) then push a local skill folder to a GitHub repo as ONE atomic commit (Git Data API: blob per file -> tree -> commit -> ref update), so a skill created locally on some agent can be published back to the shared library. Writes a per-skill .meta.json (uploadedBy/uploadedAt/updatedBy/updatedAt) in the same commit. NEVER pushes directly to the repo\'s default branch (main/master) — it always targets a feature branch (auto-named "skill/<skillName>" if you don\'t pass one), creating that branch from the current default-branch head if it doesn\'t exist yet, matching this project\'s own "never push to main without confirmation, default to a feature branch + PR" convention. The recommended full workflow for the calling agent: (1) call this tool to push to the feature branch, (2) call skillbridge_search_remote_skills/skillbridge_pull_skill with ref=<that branch> to pull it back down and verify it round-tripped correctly, (3) if that looks right, open a PR (e.g. via `gh pr create --base <default branch> --head <feature branch>`) for a human reviewer to check and merge — do not merge it yourself. IMPORTANT: ask the user for their name/email/GitHub username (the `identity` field) BEFORE calling this tool — do not guess or reuse a value from earlier context. The tool independently checks that identity against the account `gh` is logged in as, and refuses on a mismatch unless confirmMismatch is explicitly set. Needs the GitHub CLI (`gh`) installed and logged in (`gh auth login`) on this machine, with write access to the target repo — ask a repo admin to add you as a collaborator if you don\'t have it.',
+      'Validate (fail-closed — refuses if invalid, no GitHub calls made) then push a local skill folder to a GitHub repo as ONE atomic commit (Git Data API: blob per file -> tree -> commit -> ref update), so a skill created locally on some agent can be published back to the shared library. Writes a per-skill .meta.json (uploadedBy/uploadedAt/updatedBy/updatedAt) in the same commit. NEVER pushes directly to the repo\'s default branch (main/master) — it always targets a feature branch (auto-named "skill/<skillName>" if you don\'t pass one), creating that branch from the current default-branch head if it doesn\'t exist yet, matching this project\'s own "never push to main without confirmation, default to a feature branch + PR" convention. The recommended full workflow for the calling agent: (1) call this tool to push to the feature branch, (2) call mcpskilllib_search_remote_skills/mcpskilllib_pull_skill with ref=<that branch> to pull it back down and verify it round-tripped correctly, (3) if that looks right, open a PR (e.g. via `gh pr create --base <default branch> --head <feature branch>`) for a human reviewer to check and merge — do not merge it yourself. IMPORTANT: ask the user for their name/email/GitHub username (the `identity` field) BEFORE calling this tool — do not guess or reuse a value from earlier context. The tool independently checks that identity against the account `gh` is logged in as, and refuses on a mismatch unless confirmMismatch is explicitly set. Needs the GitHub CLI (`gh`) installed and logged in (`gh auth login`) on this machine, with write access to the target repo — ask a repo admin to add you as a collaborator if you don\'t have it.',
     inputSchema: {
-      skillPath: z.string().describe('Absolute local folder path to the skill to push (must pass the same checks as skillbridge_validate_skill; this tool refuses to push otherwise)'),
+      skillPath: z.string().describe('Absolute local folder path to the skill to push (must pass the same checks as mcpskilllib_validate_skill; this tool refuses to push otherwise)'),
       owner: z.string(),
       repo: z.string(),
       branch: z

@@ -13,8 +13,8 @@ something worked and debug it yourself if it didn't.
 ## Searching without knowing which repo
 
 **"Find me anything about brand guidelines" (no repo named)**
-→ agent calls `skillbridge_search_all_sources` instead of
-`skillbridge_search_remote_skills`, since you didn't say which repo:
+→ agent calls `mcpskilllib_search_all_sources` instead of
+`mcpskilllib_search_remote_skills`, since you didn't say which repo:
 ```json
 { "query": "brand", "limit": 10 }
 ```
@@ -38,7 +38,7 @@ fatal — the rest still search normally.
 ## A first walkthrough — pulling and deploying a skill
 
 **1. "Find me skills about code review in anthropics/skills"**
-→ agent calls `skillbridge_search_remote_skills`:
+→ agent calls `mcpskilllib_search_remote_skills`:
 ```json
 { "owner": "anthropics", "repo": "skills", "query": "review", "limit": 10 }
 ```
@@ -56,7 +56,7 @@ Output:
 get the next page.
 
 **2. "Pull that one down"**
-→ agent calls `skillbridge_pull_skill`:
+→ agent calls `mcpskilllib_pull_skill`:
 ```json
 { "owner": "anthropics", "repo": "skills", "skillPaths": ["code-review"] }
 ```
@@ -69,7 +69,7 @@ A non-empty `warnings` array here doesn't mean it failed (`status` is still
 the source before others rely on it, but not blocking.
 
 **3. "What agents do I have installed?"**
-→ agent calls `skillbridge_detect_agents` (no input needed):
+→ agent calls `mcpskilllib_detect_agents` (no input needed):
 ```json
 { "agents": [{ "agent": "claude-code", "scope": "global", "skillsDir": "/home/you/.claude/skills", "agentPresent": true }, { "agent": "cursor", "scope": "global", "skillsDir": "/home/you/.cursor/skills", "agentPresent": false }] }
 ```
@@ -77,7 +77,7 @@ the source before others rely on it, but not blocking.
 **4. "Deploy it to Claude Code, just for me"**
 Your agent should ask which scope you want (`global` vs `project`) before
 calling this — if it doesn't, say so explicitly. → calls
-`skillbridge_deploy_skill`:
+`mcpskilllib_deploy_skill`:
 ```json
 { "skillName": "code-review", "targets": ["claude-code"], "scopes": ["global"] }
 ```
@@ -95,7 +95,7 @@ after this — skill folders are only re-scanned on startup.
 **"Remove code-review, I don't use it anymore"** → agent should confirm
 whether to also delete it from `SKILL-LIB/` (not just undeploy it) before
 calling — this is permanent, `SKILL_LIBRARY_PATH` isn't git-tracked. →
-`skillbridge_remove_skill`:
+`mcpskilllib_remove_skill`:
 ```json
 { "skillName": "code-review", "targets": ["claude-code"], "scopes": ["global"] }
 ```
@@ -111,7 +111,7 @@ hand only if you're sure it's safe to.
 
 ## Publishing a skill you wrote
 
-**"Check if my skill folder is valid"** → `skillbridge_validate_skill`:
+**"Check if my skill folder is valid"** → `mcpskilllib_validate_skill`:
 ```json
 { "skillPath": "/home/you/.skill-library/my-new-skill" }
 ```
@@ -121,7 +121,7 @@ hand only if you're sure it's safe to.
 Fix every item in `issues` before pushing — `push_skill` re-runs this exact
 check and refuses to push if it's not clean.
 
-**"Push it to aidev3-web/SKILL-LIB, I'm <you>"** → `skillbridge_push_skill`:
+**"Push it to aidev3-web/SKILL-LIB, I'm <you>"** → `mcpskilllib_push_skill`:
 ```json
 { "skillPath": "/home/you/.skill-library/my-new-skill", "owner": "aidev3-web", "repo": "SKILL-LIB", "identity": "your-github-username" }
 ```

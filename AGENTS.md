@@ -9,7 +9,7 @@ anything under `mcp-skill-library/`.
 
 ## 1. What this project is, and how to run/check it
 
-- A single MCP server (`skill-bridge`), published as
+- A single MCP server (`mcp-skill-lib`), published as
   `@aidev3-web/mcp-skill-library`. Plain Node ESM, no build step.
 
 ### 1.1 Project structure
@@ -72,7 +72,7 @@ file backing that claim.
   file you touched before committing — a syntax error must never reach
   `main`.
 - Manual verification: register the server locally
-  (`claude mcp add --scope user skill-bridge -- node <path-to>/index.js`
+  (`claude mcp add --scope user mcp-skill-lib -- node <path-to>/index.js`
   works without publishing) and call each of the 8 tools at least once
   end to end (search / search-all-sources → pull → detect → deploy →
   remove, and validate → push) against a scratch repo/branch — never
