@@ -36,6 +36,19 @@ function textOf(res) {
   return (res.content || []).map((c) => c.text || '').join('\n');
 }
 
+// A benchmark object whose Layer 1-3 evidence fields all read as a pass —
+// for tests where the benchmark gate itself isn't what's under test.
+const PASSING_BENCHMARK = {
+  layer0Passed: true,
+  trigger: { positivePrompt: 'p', positiveFired: true, negativePrompt: 'n', negativeFired: false, sessionEvidence: 'e' },
+  outcome: { withSkillResult: 'w', withoutSkillResult: 'wo', skillHelped: true },
+  stability: { runs: 3, consistent: true, notes: 'n' },
+  edgeCase: { score: 18, notes: 'n' },
+  scope: { score: 18, notes: 'n' },
+  score: 90,
+  summary: 'no concerns',
+};
+
 test('remove_skill refuses a traversing skillName instead of deleting outside the library', async () => {
   const root = sandbox('traversal');
   const lib = path.join(root, 'skill-library');
@@ -127,7 +140,7 @@ test('push_skill refuses a skill folder containing credential files, before any 
         owner: 'aidev3-web',
         repo: 'SKILL-LIB',
         identity: 'test',
-        benchmark: { layer0Passed: true, score: 90, summary: 'no concerns' },
+        benchmark: PASSING_BENCHMARK,
       },
     });
     assert.equal(res.isError, true);
@@ -226,7 +239,12 @@ test('benchmark_skill computes Layer 0 and push_skill refuses a low score before
         owner: 'aidev3-web',
         repo: 'SKILL-LIB',
         identity: 'test',
-        benchmark: { layer0Passed: false, score: 40, summary: 'vague and unfocused' },
+        benchmark: {
+          ...PASSING_BENCHMARK,
+          layer0Passed: false,
+          score: 40,
+          summary: 'vague and unfocused',
+        },
       },
     });
     assert.equal(res.isError, true);
@@ -255,12 +273,109 @@ test('push_skill refuses a below-threshold score even when Layer 0 passes', asyn
         owner: 'aidev3-web',
         repo: 'SKILL-LIB',
         identity: 'test',
-        benchmark: { layer0Passed: true, score: 55, summary: 'weak trigger and scope' },
+        benchmark: { ...PASSING_BENCHMARK, score: 55, summary: 'weak trigger and scope' },
       },
     });
     assert.equal(res.isError, true);
     assert.equal(res.structuredContent.status, 'benchmark-too-low');
     assert.match(textOf(res), /below the 70\/100 minimum/);
+  } finally {
+    await client.close();
+  }
+});
+
+test('push_skill refuses when the negative trigger test actually fired (false positive risk)', async () => {
+  const root = sandbox('benchmark-trigger');
+  const skill = path.join(root, 'lib', 'chatty-skill');
+  fs.mkdirSync(skill, { recursive: true });
+  fs.writeFileSync(
+    path.join(skill, 'SKILL.md'),
+    '---\nname: chatty-skill\ndescription: A skill whose trigger overlaps with unrelated requests, used to test the negative-fired refusal.\n---\n\nBody.\n',
+  );
+
+  const client = await connect(path.join(root, 'lib'));
+  try {
+    const res = await client.callTool({
+      name: 'push_skill',
+      arguments: {
+        skillPath: skill,
+        owner: 'aidev3-web',
+        repo: 'SKILL-LIB',
+        identity: 'test',
+        benchmark: {
+          ...PASSING_BENCHMARK,
+          trigger: { ...PASSING_BENCHMARK.trigger, negativeFired: true },
+        },
+      },
+    });
+    assert.equal(res.isError, true);
+    assert.equal(res.structuredContent.status, 'benchmark-too-low');
+    assert.match(textOf(res), /fired the skill when it should not have/);
+  } finally {
+    await client.close();
+  }
+});
+
+test('push_skill rejects fewer than 3 stability runs at the schema level, before the handler runs', async () => {
+  const root = sandbox('benchmark-stability-schema');
+  const skill = path.join(root, 'lib', 'untested-skill');
+  fs.mkdirSync(skill, { recursive: true });
+  fs.writeFileSync(
+    path.join(skill, 'SKILL.md'),
+    '---\nname: untested-skill\ndescription: A skill pushed with only 1 stability run instead of the required 3, to test that gate.\n---\n\nBody.\n',
+  );
+
+  const client = await connect(path.join(root, 'lib'));
+  try {
+    const res = await client.callTool({
+      name: 'push_skill',
+      arguments: {
+        skillPath: skill,
+        owner: 'aidev3-web',
+        repo: 'SKILL-LIB',
+        identity: 'test',
+        benchmark: {
+          ...PASSING_BENCHMARK,
+          stability: { runs: 1, consistent: true, notes: 'only ran once' },
+        },
+      },
+    });
+    // z.number().min(3) on stability.runs rejects this before push_skill's
+    // handler code — even before the handler-level benchmark-too-low check.
+    assert.equal(res.isError, true);
+    assert.match(textOf(res), /Invalid arguments for tool push_skill/);
+  } finally {
+    await client.close();
+  }
+});
+
+test('push_skill refuses when 3 stability runs were tested but were inconsistent', async () => {
+  const root = sandbox('benchmark-stability-inconsistent');
+  const skill = path.join(root, 'lib', 'flaky-skill');
+  fs.mkdirSync(skill, { recursive: true });
+  fs.writeFileSync(
+    path.join(skill, 'SKILL.md'),
+    '---\nname: flaky-skill\ndescription: A skill pushed after 3 real runs that produced inconsistent results, to test that gate.\n---\n\nBody.\n',
+  );
+
+  const client = await connect(path.join(root, 'lib'));
+  try {
+    const res = await client.callTool({
+      name: 'push_skill',
+      arguments: {
+        skillPath: skill,
+        owner: 'aidev3-web',
+        repo: 'SKILL-LIB',
+        identity: 'test',
+        benchmark: {
+          ...PASSING_BENCHMARK,
+          stability: { runs: 3, consistent: false, notes: 'the 3 runs picked different approaches' },
+        },
+      },
+    });
+    assert.equal(res.isError, true);
+    assert.equal(res.structuredContent.status, 'benchmark-too-low');
+    assert.match(textOf(res), /were not consistent/);
   } finally {
     await client.close();
   }
