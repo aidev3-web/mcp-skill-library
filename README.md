@@ -211,7 +211,8 @@ Install and register the "mcp-skill-lib" MCP server
 | `deploy_skill` | Symlink a pulled skill into every detected agent's skills folder (falls back to a copy if symlinking isn't available). Takes an optional `scopes` filter (`global`/`project`) — the calling agent should ask the user which scope(s) they want before calling this, the same way Claude Code's own plugin installer asks "user scope" vs "project scope" |
 | `remove_skill` | Undo `deploy_skill` — remove the symlinks from every agent's skill folder, and (unless `keepInLibrary: true`) delete the skill from `SKILL-LIB/` too. Only ever removes a symlink that actually resolves back to this skill; a same-named real folder is left untouched. Permanent, no undo — the calling agent should confirm with the user first |
 | `validate_skill` | Check a local skill folder against the same 4 rules SKILL-LIB's CI lint enforces (frontmatter parses, only name/description keys, name format/length/folder-match, non-empty description) — no network, safe to call repeatedly |
-| `push_skill` | Validate (fail-closed) then push a local skill folder to a GitHub repo as one atomic commit via the Git Data API, with an identity cross-check against the account `gh` is logged in as, and a per-skill `.meta.json` tracking uploadedBy/uploadedAt/updatedBy/updatedAt |
+| `benchmark_skill` | Judge a local skill against the 6-layer quality rubric (see `skill-evaluation-kit.html`): computes Layer 0 (Static) mechanically — description length, vague phrasing, module count against the 2-3-module complexity contract — then returns the skill's content plus a rubric prompt asking the calling agent to score Layers 1-5 (Trigger/Outcome/Stability/Edge case & guardrail/Scope), since only a reader who understands the skill's intent can judge those. No network |
+| `push_skill` | Validate (fail-closed) then push a local skill folder to a GitHub repo as one atomic commit via the Git Data API, with an identity cross-check against the account `gh` is logged in as, and a per-skill `.meta.json` tracking uploadedBy/uploadedAt/updatedBy/updatedAt. Requires a `benchmark` argument (the result of calling `benchmark_skill` first) and refuses to push below a 70/100 threshold |
 
 See [`docs/USAGE.md`](docs/USAGE.md) for a step-by-step walkthrough of each
 tool (real input/output examples) and a troubleshooting table.
@@ -227,6 +228,7 @@ covers each one:
 | A repo entry that resolves outside the destination folder aborts that skill's pull | Classic zip-slip: the repo controls those paths, this machine shouldn't trust them |
 | `remove_skill` won't delete the library folder while any detected agent still links to it | Otherwise a scoped removal (`scopes: ["global"]`) leaves the project-scope symlink dangling. Reported as `librarySkipReason` |
 | `push_skill` refuses the whole push if the folder holds anything credential-shaped (`.env`, `*.pem`, `id_rsa`, …; `.env.example` is fine) | A shared repo push can't be un-seen. There is deliberately no override flag |
+| `push_skill` refuses if `benchmark_skill`'s Layer 0 failed, or the combined score is below 70/100 | A skill nobody can trigger correctly, or that doesn't hold up under scrutiny, gets fixed before it's shared — not force-published. No override flag |
 | `owner`/`repo` must match `[A-Za-z0-9._-]{1,100}` before they reach an API path | Every GitHub path is built by interpolation; a `/` or `?` in a name would reshape the request |
 | `pull_skill` writes raw bytes, never a UTF-8 round-trip | Verified against a real 78 KB font: the old text path inflated it to 98 KB of U+FFFD. Skills legitimately ship PDFs, images and fonts |
 
@@ -237,13 +239,14 @@ covers each one:
 `skill/<skillName>` if you don't pass one), creating it from the current
 default-branch head if it doesn't exist yet. The full recommended flow:
 
-1. **Push** — `push_skill` to the feature branch.
-2. **Pull it back down to verify** — `search_remote_skills` /
+1. **Validate & benchmark** — `validate_skill`, then `benchmark_skill` and pass its result as `push_skill`'s `benchmark` argument.
+2. **Push** — `push_skill` to the feature branch.
+3. **Pull it back down to verify** — `search_remote_skills` /
    `pull_skill` with `ref` set to that same branch, to confirm
    the skill round-tripped correctly (not just trusting the local copy).
-3. **Open a PR** — e.g. `gh pr create --base <default branch> --head
-   skill/<skillName>` — once step 2 looks right.
-4. **A human reviews and merges** — this repo's `CODEOWNERS` already
+4. **Open a PR** — e.g. `gh pr create --base <default branch> --head
+   skill/<skillName>` — once step 3 looks right.
+5. **A human reviews and merges** — this repo's `CODEOWNERS` already
    requires review before merge; the tool never merges anything itself.
 
 Only pass `allowDirectToDefaultBranch: true` if a human has explicitly asked

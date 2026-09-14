@@ -113,7 +113,7 @@ test('push_skill refuses a skill folder containing credential files, before any 
   const root = sandbox('secrets');
   const skill = path.join(root, 'leaky-skill');
   fs.mkdirSync(skill, { recursive: true });
-  fs.writeFileSync(path.join(skill, 'SKILL.md'), '---\nname: leaky-skill\ndescription: A skill with a secret in it\n---\n\nBody.\n');
+  fs.writeFileSync(path.join(skill, 'SKILL.md'), '---\nname: leaky-skill\ndescription: A skill with a secret in it, used only to test the credential sweep before any GitHub call.\n---\n\nBody.\n');
   fs.writeFileSync(path.join(skill, '.env'), 'API_KEY=sk-live-should-never-be-pushed\n');
   fs.writeFileSync(path.join(skill, 'deploy.pem'), '-----BEGIN PRIVATE KEY-----\n');
   fs.writeFileSync(path.join(skill, '.env.example'), 'API_KEY=\n'); // a template: must NOT trip the check
@@ -122,7 +122,13 @@ test('push_skill refuses a skill folder containing credential files, before any 
   try {
     const res = await client.callTool({
       name: 'push_skill',
-      arguments: { skillPath: skill, owner: 'aidev3-web', repo: 'SKILL-LIB', identity: 'test' },
+      arguments: {
+        skillPath: skill,
+        owner: 'aidev3-web',
+        repo: 'SKILL-LIB',
+        identity: 'test',
+        benchmark: { layer0Passed: true, score: 90, summary: 'no concerns' },
+      },
     });
     assert.equal(res.isError, true);
     assert.equal(res.structuredContent.status, 'secrets-detected');
@@ -194,6 +200,67 @@ test('a malformed sources.local.json names the offending file instead of leaking
     const res = await client.callTool({ name: 'search_all_sources', arguments: { query: 'x' } });
     assert.equal(res.isError, true);
     assert.match(textOf(res), /sources\.local\.json/);
+  } finally {
+    await client.close();
+  }
+});
+
+test('benchmark_skill computes Layer 0 and push_skill refuses a low score before any GitHub call', async () => {
+  const root = sandbox('benchmark-low');
+  const skill = path.join(root, 'lib', 'vague-skill');
+  fs.mkdirSync(skill, { recursive: true });
+  // Too-short, vague description: Layer 0 should fail this on its own.
+  fs.writeFileSync(path.join(skill, 'SKILL.md'), '---\nname: vague-skill\ndescription: Helps with various things.\n---\n\nBody.\n');
+
+  const client = await connect(path.join(root, 'lib'));
+  try {
+    const bench = await client.callTool({ name: 'benchmark_skill', arguments: { skillPath: skill } });
+    assert.equal(bench.structuredContent.layer0Passed, false);
+    assert.ok(bench.structuredContent.layer0Issues.some((i) => /vague phrasing/.test(i)));
+    assert.ok(bench.structuredContent.layer0Issues.some((i) => /too short/.test(i)));
+
+    const res = await client.callTool({
+      name: 'push_skill',
+      arguments: {
+        skillPath: skill,
+        owner: 'aidev3-web',
+        repo: 'SKILL-LIB',
+        identity: 'test',
+        benchmark: { layer0Passed: false, score: 40, summary: 'vague and unfocused' },
+      },
+    });
+    assert.equal(res.isError, true);
+    assert.equal(res.structuredContent.status, 'benchmark-too-low');
+    assert.match(textOf(res), /Layer 0/);
+  } finally {
+    await client.close();
+  }
+});
+
+test('push_skill refuses a below-threshold score even when Layer 0 passes', async () => {
+  const root = sandbox('benchmark-score');
+  const skill = path.join(root, 'lib', 'ok-skill');
+  fs.mkdirSync(skill, { recursive: true });
+  fs.writeFileSync(
+    path.join(skill, 'SKILL.md'),
+    '---\nname: ok-skill\ndescription: A concretely-scoped skill with a clear, specific trigger condition for testing.\n---\n\nBody.\n',
+  );
+
+  const client = await connect(path.join(root, 'lib'));
+  try {
+    const res = await client.callTool({
+      name: 'push_skill',
+      arguments: {
+        skillPath: skill,
+        owner: 'aidev3-web',
+        repo: 'SKILL-LIB',
+        identity: 'test',
+        benchmark: { layer0Passed: true, score: 55, summary: 'weak trigger and scope' },
+      },
+    });
+    assert.equal(res.isError, true);
+    assert.equal(res.structuredContent.status, 'benchmark-too-low');
+    assert.match(textOf(res), /below the 70\/100 minimum/);
   } finally {
     await client.close();
   }

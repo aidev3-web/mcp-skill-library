@@ -23,7 +23,7 @@ mcp-skill-library/
 ├── .gitignore              # Git ignore patterns
 ├── .npmrc                  # npm registry config (only needed for the optional
 │                           #   GitHub-Packages `npx` install path)
-├── index.js                # Entry point — registers the 8 MCP tools.
+├── index.js                # Entry point — registers the 9 MCP tools.
 │                           #   A thin router only: receives a call, calls the
 │                           #   matching lib/ function, holds no logic itself —
 │                           #   except the input guards (resolveSkillDir) that
@@ -40,6 +40,9 @@ mcp-skill-library/
 │   │                       #     plus findRemainingDeployments()
 │   ├── validate.js          #   SKILL.md format validation rules (shared by
 │   │                       #     validate_skill and push_skill's fail-closed gate)
+│   ├── benchmark.js         #   Layer 0 (Static) mechanical checks + the
+│   │                       #     rubric prompt for benchmark_skill / push_skill's
+│   │                       #     benchmark gate (see skill-evaluation-kit.html)
 │   └── localfs.js           #   Recursive local skill-folder walk + credential
 │                           #     sweep (both for push_skill)
 └── test/                   # node:test
@@ -73,10 +76,10 @@ file backing that claim.
   `main`.
 - Manual verification: register the server locally
   (`claude mcp add --scope user mcp-skill-lib -- node <path-to>/index.js`
-  works without publishing) and call each of the 8 tools at least once
+  works without publishing) and call each of the 9 tools at least once
   end to end (search / search-all-sources → pull → detect → deploy →
-  remove, and validate → push) against a scratch repo/branch — never
-  `main` of any real repo — before opening a PR that touches `index.js`
+  remove, and validate → benchmark → push) against a scratch repo/branch
+  — never `main` of any real repo — before opening a PR that touches `index.js`
   or `lib/`.
 
 ### 1.2 Invariants — don't regress these
@@ -101,6 +104,13 @@ is wrong — not the test.
   library folder, and reports `librarySkipReason` instead of deleting.
 - **`push_skill` runs `findSecretFiles()` before its first GitHub call**
   and fails closed. No override flag — don't add one.
+- **`push_skill` requires a `benchmark` argument** (from calling
+  `benchmark_skill` first) and refuses (`benchmark-too-low`) if Layer 0
+  failed or the score is under `MIN_BENCHMARK_SCORE` (70). This is a
+  judgment call the *calling agent* makes by reading the skill — this
+  server cannot run a skill to score it, so don't try to make
+  `benchmark_skill` self-contained; it hands off Layers 1-5 on purpose.
+  No override flag here either.
 - **`owner`/`repo` reach an API path only via `repoPath()`** in
   `lib/github.js`. Never interpolate them into a `ghApi()` path directly.
 - **Caches stay bounded**: `treeCache` (size-capped, TTL) and
@@ -135,7 +145,7 @@ no-op instead of a false "skipped-exists".
 The scope is optional but preferred. Use the part of the system you
 touched: `index` (tool definitions/schemas), `github` (`lib/github.js`),
 `agents` (`lib/agents.js`), `frontmatter` (`lib/frontmatter.js`),
-`validate` (`lib/validate.js`), `localfs` (`lib/localfs.js`),
+`validate` (`lib/validate.js`), `benchmark` (`lib/benchmark.js`), `localfs` (`lib/localfs.js`),
 `docs` (README/AGENTS.md), `config` (package.json, `.npmrc`,
 `provision-skill-bridge.ps1`). Omit it for changes that genuinely span
 the whole package.
@@ -205,6 +215,7 @@ Branch names are lower-case with hyphens, e.g. `feat/pull-skill-dedupe`.
    node --check lib/agents.js
    node --check lib/frontmatter.js
    node --check lib/validate.js
+   node --check lib/benchmark.js
    node --check lib/localfs.js
    ```
 3. Manually exercise the change (see §1's "Manual verification") — there

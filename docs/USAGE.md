@@ -121,17 +121,35 @@ hand only if you're sure it's safe to.
 Fix every item in `issues` before pushing — `push_skill` re-runs this exact
 check and refuses to push if it's not clean.
 
+**"Is this skill actually good, before I push it?"** → `benchmark_skill`:
+```json
+{ "skillPath": "/home/you/.skill-library/my-new-skill" }
+```
+```json
+{ "skillPath": "...", "layer0Passed": true, "layer0Issues": [], "moduleCount": 1, "descriptionLength": 143, "judgePrompt": "..." }
+```
+`layer0Passed`/`layer0Issues` are computed mechanically (description length,
+vague phrasing like "helps with various things", module count against a
+2-3-module complexity contract). `judgePrompt` is the skill's own content plus
+a rubric — the calling agent reads it and scores Layers 1-5 (Trigger /
+Outcome / Stability / Edge case & guardrail / Scope) itself, since only a
+reader that understands the skill's intent can judge those; this tool never
+runs the skill to score it. The agent then calls `push_skill` again with a
+`benchmark` argument shaped like `{ "layer0Passed": true, "score": 82,
+"summary": "...", "weakLayers": [] }`.
+
 **"Push it to aidev3-web/SKILL-LIB, I'm <you>"** → `push_skill`:
 ```json
-{ "skillPath": "/home/you/.skill-library/my-new-skill", "owner": "aidev3-web", "repo": "SKILL-LIB", "identity": "your-github-username" }
+{ "skillPath": "/home/you/.skill-library/my-new-skill", "owner": "aidev3-web", "repo": "SKILL-LIB", "identity": "your-github-username", "benchmark": { "layer0Passed": true, "score": 82, "summary": "no concerns" } }
 ```
 ```json
 { "status": "pushed", "skillName": "my-new-skill", "isUpdate": false, "commitSha": "a1b2c3d", "commitUrl": "https://github.com/aidev3-web/SKILL-LIB/commit/a1b2c3d", "filesPushed": ["my-new-skill/SKILL.md", "my-new-skill/.meta.json"], "warnings": [] }
 ```
 `status` can also come back `validation-failed` (didn't pass the same checks
-as above), `identity-mismatch` (the `identity` you gave doesn't match the
-account `gh` is logged in as — see Troubleshooting), or `conflict` (someone
-else pushed to that branch while this was running — just retry).
+as above), `benchmark-too-low` (Layer 0 failed or the score is under 70/100 —
+see Troubleshooting), `identity-mismatch` (the `identity` you gave doesn't
+match the account `gh` is logged in as — see Troubleshooting), or `conflict`
+(someone else pushed to that branch while this was running — just retry).
 
 See the root README's ["Recommended workflow for publishing a locally-created
 skill"](../README.md#recommended-workflow-for-publishing-a-locally-created-skill)
@@ -149,6 +167,7 @@ for the full push → verify → PR → review flow this feeds into.
 | `push_skill` returns `identity-mismatch` | The `identity` value you gave doesn't match the login/name/email of the account `gh` is logged in as | Fix the `identity` value, or pass `confirmMismatch: true` if you're deliberately pushing on someone else's behalf |
 | `push_skill` returns `conflict` | Someone else pushed to that branch while this call was running | Just retry the same call — nothing was lost, the unreferenced commit is harmless |
 | `push_skill` returns `secrets-detected` | The skill folder holds a file that looks like a credential (`.env`, `*.pem`, `id_rsa`, `credentials.json`, …) and would have been published to a shared repo | Move it out of the skill folder, or rename to `.env.example`/`.sample` if it's a template. There is no override flag — a pushed secret has to be treated as leaked |
+| `push_skill` returns `benchmark-too-low` | Either `benchmark_skill`'s Layer 0 failed (too-short/vague description, or too many supporting files), or the agent's own Layers 1-5 score came in under 70/100 | Read the `summary`/`weakLayers` in the response, fix the skill, call `benchmark_skill` again, then retry `push_skill` with the new result. There is no override flag |
 | `Invalid skillName — it must be a single folder name…` | `skillName` contained `/`, `\`, `..`, or an absolute path. It names one folder directly under `SKILL_LIBRARY_PATH`, not a path | Pass just the folder name, e.g. `no-emoji-check`, not `SKILL-LIB/no-emoji-check` or a full path |
 | `remove_skill` reports `libraryRemoved: false` with a `librarySkipReason` | The skill is still deployed somewhere this call didn't undeploy (usually because `targets`/`scopes` narrowed it), so deleting the folder would leave a dangling symlink | Re-run without the `targets`/`scopes` filter, or remove the listed non-symlink folders by hand |
 | `deploy_skill` result has `status: "error"` for one agent | Usually a permissions issue writing to that agent's skills folder | Check the `error` field in that result for the OS-level reason |

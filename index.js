@@ -25,6 +25,7 @@ import { parseFrontmatter } from './lib/frontmatter.js';
 import { detectAgents, deploySkill, removeSkill, findRemainingDeployments } from './lib/agents.js';
 import { validateSkillFolder } from './lib/validate.js';
 import { walkSkillFiles, findSecretFiles } from './lib/localfs.js';
+import { computeStaticSignals, buildJudgePrompt } from './lib/benchmark.js';
 
 // Independent of where this tool's own code lives — set SKILL_LIBRARY_PATH to
 // point at wherever pulled skills should be stored locally.
@@ -511,6 +512,48 @@ server.registerTool(
   },
 );
 
+const MIN_BENCHMARK_SCORE = 70;
+
+server.registerTool(
+  'benchmark_skill',
+  {
+    description:
+      `Judge a local skill folder's quality against this project's 6-layer rubric (Layer 0 Static, 1 Trigger, 2 Outcome, 3 Stability, 4 Edge case & guardrail, 5 Scope — see skill-evaluation-kit.html). This tool only computes Layer 0 mechanically (description length, vague phrasing, module count against the 2-3-module complexity contract) — it cannot run the skill, so it returns the skill's own content plus a rubric prompt asking YOU (the calling agent) to score Layers 1-5 by reading and reasoning about it, since only a reader that understands the skill's intent can judge those. Call this BEFORE push_skill and pass its result back as push_skill's \`benchmark\` argument — push_skill refuses to publish (status "benchmark-too-low") if Layer 0 fails or the total score is below ${MIN_BENCHMARK_SCORE}/100. No network calls.`,
+    inputSchema: {
+      skillPath: z.string().describe('Absolute local folder path to the skill to benchmark'),
+    },
+    outputSchema: {
+      skillPath: z.string(),
+      layer0Passed: z.boolean(),
+      layer0Issues: z.array(z.string()),
+      moduleCount: z.number(),
+      descriptionLength: z.number(),
+      judgePrompt: z.string(),
+    },
+  },
+  async ({ skillPath }) => {
+    if (!fs.existsSync(skillPath) || !fs.statSync(skillPath).isDirectory()) {
+      return { content: [{ type: 'text', text: `Not a directory: ${skillPath}` }], isError: true };
+    }
+    const staticSignals = computeStaticSignals(skillPath);
+    const judgePrompt = buildJudgePrompt(skillPath, staticSignals);
+    const layer0Summary = staticSignals.passed
+      ? 'Layer 0 (Static): passed.'
+      : `Layer 0 (Static): FAILED —\n${staticSignals.issues.map((i) => `- ${i}`).join('\n')}`;
+    return {
+      content: [{ type: 'text', text: `${layer0Summary}\n\n${judgePrompt}` }],
+      structuredContent: {
+        skillPath,
+        layer0Passed: staticSignals.passed,
+        layer0Issues: staticSignals.issues,
+        moduleCount: staticSignals.moduleCount,
+        descriptionLength: staticSignals.descriptionLength,
+        judgePrompt,
+      },
+    };
+  },
+);
+
 server.registerTool(
   'validate_skill',
   {
@@ -573,9 +616,19 @@ server.registerTool(
           'Set true only if the user has explicitly confirmed they intend to push under an identity that does not match the account `gh` is logged in as (e.g. pushing on behalf of a teammate). Leave false/omitted otherwise.',
         ),
       commitMessage: z.string().optional().describe('Override the default commit message ("feat(library): Add/Update <skillName> skill")'),
+      benchmark: z
+        .object({
+          layer0Passed: z.boolean(),
+          score: z.number().min(0).max(100),
+          summary: z.string(),
+          weakLayers: z.array(z.string()).optional(),
+        })
+        .describe(
+          `Result of calling benchmark_skill on this same skillPath first, judged by you against the 6-layer rubric. Required — this tool refuses to push (status "benchmark-too-low") if layer0Passed is false or score is below ${MIN_BENCHMARK_SCORE}. There is no override flag; fix the skill and re-benchmark instead.`,
+        ),
     },
     outputSchema: {
-      status: z.enum(['pushed', 'validation-failed', 'secrets-detected', 'identity-mismatch', 'conflict']),
+      status: z.enum(['pushed', 'validation-failed', 'benchmark-too-low', 'secrets-detected', 'identity-mismatch', 'conflict']),
       skillName: z.string().nullable(),
       isUpdate: z.boolean().optional(),
       commitSha: z.string().optional(),
@@ -594,7 +647,7 @@ server.registerTool(
       warnings: z.array(z.string()),
     },
   },
-  async ({ skillPath, owner, repo, branch, allowDirectToDefaultBranch, identity, confirmMismatch, commitMessage }) => {
+  async ({ skillPath, owner, repo, branch, allowDirectToDefaultBranch, identity, confirmMismatch, commitMessage, benchmark }) => {
     const warnings = [];
 
     // 1. Validate first — fail closed, zero GitHub calls if invalid.
@@ -614,6 +667,36 @@ server.registerTool(
       };
     }
     const skillName = v.name;
+
+    // 1a. Benchmark gate — also before any GitHub call. Fails closed if the
+    // caller skipped benchmark_skill's Layer 0 result or the score is below
+    // the threshold. No override flag: a low-quality skill gets fixed and
+    // re-benchmarked, not force-pushed anyway.
+    if (!benchmark.layer0Passed || benchmark.score < MIN_BENCHMARK_SCORE) {
+      const reasons = [];
+      if (!benchmark.layer0Passed) reasons.push('Layer 0 (Static) did not pass');
+      if (benchmark.score < MIN_BENCHMARK_SCORE) reasons.push(`score ${benchmark.score}/100 is below the ${MIN_BENCHMARK_SCORE}/100 minimum`);
+      return {
+        content: [
+          {
+            type: 'text',
+            text:
+              `Refusing to push — benchmark too low: ${reasons.join('; ')}.\n\n` +
+              `Summary from benchmark_skill: ${benchmark.summary}\n` +
+              (benchmark.weakLayers?.length ? `Weak layers: ${benchmark.weakLayers.join(', ')}\n` : '') +
+              'Improve the skill and call benchmark_skill again before retrying push_skill.',
+          },
+        ],
+        isError: true,
+        structuredContent: {
+          status: 'benchmark-too-low',
+          skillName: v.name,
+          filesPushed: [],
+          issues: reasons,
+          warnings: [],
+        },
+      };
+    }
 
     // 1b. Credential sweep — also before any GitHub call. push_skill uploads
     // every file under the folder, so a stray .env or private key would be
