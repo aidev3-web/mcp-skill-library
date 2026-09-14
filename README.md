@@ -181,12 +181,12 @@ Install and register the "mcp-skill-lib" MCP server
 6. Register the server for yourself using the exact command/config
    snippet for your agent type, from this repo's README.md
    ("Register with your agent" section). Prefer the recommended
-   local-run install: `git clone` this repo (or reuse an existing
-   checkout if I already have one), `npm install`, then point your
-   config at that checkout's `index.js` via `node`. Only fall back to
-   the `npx` alternative if I explicitly say I'd rather not manage a
-   local checkout. No `env` block or token of any kind is needed in
-   either case.
+   local-run install: `git clone https://github.com/aidev3-web/mcp-skill-library.git`
+   (or reuse an existing checkout if I already have one), `npm install`,
+   then point your config at that checkout's `index.js` via `node`.
+   Only fall back to the `npx` alternative if I explicitly say I'd
+   rather not manage a local checkout. No `env` block or token of any
+   kind is needed in either case.
 
 7. If SKILL_LIBRARY_PATH should be anything other than the default
    (~/.skill-library), ask me for the path and add it in an `env`
