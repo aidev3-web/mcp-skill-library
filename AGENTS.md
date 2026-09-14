@@ -9,14 +9,49 @@ anything under `mcp-skill-library/`.
 
 ## 1. What this project is, and how to run/check it
 
-- A single MCP server (`skill-bridge`), published as
+- A single MCP server (`mcp-skill-lib`), published as
   `@aidev3-web/mcp-skill-library`. Plain Node ESM, no build step.
-- Layout: `index.js` (the 6 registered tools) · `lib/github.js` (GitHub
-  REST calls, read AND write) · `lib/frontmatter.js` (SKILL.md frontmatter
-  parsing) · `lib/agents.js` (agent detection + symlink deploy) ·
-  `lib/validate.js` (SKILL.md frontmatter rule-checking, shared by
-  `validate_skill` and `push_skill`) · `lib/localfs.js` (recursive local
-  skill-folder walk for `push_skill`).
+
+### 1.1 Project structure
+
+```
+mcp-skill-library/
+├── README.md               # Install, agent-registration snippets, auth model, tool table
+├── AGENTS.md               # This file — contributor rules for this subtree
+├── package.json            # npm metadata, `npm test` script, dependencies
+├── package-lock.json       # Locked dependency versions
+├── .gitignore              # Git ignore patterns
+├── .npmrc                  # npm registry config (only needed for the optional
+│                           #   GitHub-Packages `npx` install path)
+├── index.js                # Entry point — registers the 8 MCP tools.
+│                           #   A thin router only: receives a call, calls the
+│                           #   matching lib/ function, holds no logic itself —
+│                           #   except the input guards (resolveSkillDir) that
+│                           #   must run before any lib/ call, see §1.2.
+├── sources.json            # Shared list of skill repos search_all_sources
+│                           #   scans. Add one by PR to this file.
+├── docs/
+│   └── USAGE.md            # End-user walkthrough per tool + troubleshooting
+├── lib/                    # All real logic, one file per concern
+│   ├── github.js           #   GitHub access via the `gh` CLI (read + write);
+│   │                       #     ensureGhReady()/__setGhRunner() live here
+│   ├── frontmatter.js       #   SKILL.md frontmatter parsing (name/description)
+│   ├── agents.js            #   Agent detection + symlink-or-copy deploy/remove,
+│   │                       #     plus findRemainingDeployments()
+│   ├── validate.js          #   SKILL.md format validation rules (shared by
+│   │                       #     validate_skill and push_skill's fail-closed gate)
+│   └── localfs.js           #   Recursive local skill-folder walk + credential
+│                           #     sweep (both for push_skill)
+└── test/                   # node:test
+    ├── github.test.js       #   gh-layer error translation, via __setGhRunner
+    └── security.test.js     #   the refusals in §1.2, over a real stdio server
+```
+
+Not yet present, worth adding if this package's release process matures:
+a `CHANGELOG.md` (version history) and a `LICENSE` file — `package.json`
+currently declares `"license": "ISC"` but there is no actual `LICENSE`
+file backing that claim.
+
 - Auth: the GitHub CLI (`gh`), installed and logged in (`gh auth login`)
   on the machine running this server — no `GITHUB_TOKEN` or any other
   token is read or accepted anywhere in this codebase. `lib/github.js`
@@ -37,11 +72,40 @@ anything under `mcp-skill-library/`.
   file you touched before committing — a syntax error must never reach
   `main`.
 - Manual verification: register the server locally
-  (`claude mcp add --scope user skill-bridge -- node <path-to>/index.js`
-  works without publishing) and call each of the 6 tools at least once
-  end to end (search → pull → detect → deploy, and validate → push)
-  against a scratch repo/branch — never `main` of any real repo — before
-  opening a PR that touches `index.js` or `lib/`.
+  (`claude mcp add --scope user mcp-skill-lib -- node <path-to>/index.js`
+  works without publishing) and call each of the 8 tools at least once
+  end to end (search / search-all-sources → pull → detect → deploy →
+  remove, and validate → push) against a scratch repo/branch — never
+  `main` of any real repo — before opening a PR that touches `index.js`
+  or `lib/`.
+
+### 1.2 Invariants — don't regress these
+
+This server takes input from two places that must not be trusted: skill
+content pulled from outside repos, and tool arguments an agent produced
+after reading that content. Each rule below fixed a hole that was
+demonstrated working against this server, and each has a test in
+`test/security.test.js`. If a change makes one of those fail, the change
+is wrong — not the test.
+
+- **Any tool that turns a `skillName` into a path goes through
+  `resolveSkillDir()` first**, and returns `BAD_SKILL_NAME_MSG` on null.
+  A `skillName` is one folder name directly under `LIBRARY_ROOT`, never a
+  path. `remove_skill` with `../important-files` was a recursive delete.
+- **`pull_skill` re-checks every repo-provided path** against its
+  destination root before writing (zip-slip), and writes the `Buffer`
+  from `getBlobBytes()` — never a `getBlobText()` string. A UTF-8 round
+  trip silently corrupts every binary a skill ships.
+- **`remove_skill` calls `findRemainingDeployments()` across *all*
+  detected agents** (not just the filtered ones) before deleting the
+  library folder, and reports `librarySkipReason` instead of deleting.
+- **`push_skill` runs `findSecretFiles()` before its first GitHub call**
+  and fails closed. No override flag — don't add one.
+- **`owner`/`repo` reach an API path only via `repoPath()`** in
+  `lib/github.js`. Never interpolate them into a `ghApi()` path directly.
+- **Caches stay bounded**: `treeCache` (size-capped, TTL) and
+  `ensureGhReady`'s `readyCheck` (TTL, so a mid-session `gh auth logout`
+  is noticed).
 
 ## 2. Commit messages
 

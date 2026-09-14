@@ -1,0 +1,6 @@
+{
+  "sources": [
+    { "owner": "aidev3-web", "repo": "SKILL-LIB", "note": "TechNext's main shared skill library" },
+    { "owner": "anthropics", "repo": "skills", "note": "Anthropic's official example Agent Skills" }
+  ]
+}

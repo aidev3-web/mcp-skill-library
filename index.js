@@ -5,11 +5,13 @@ import { z } from 'zod';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   ensureGhReady,
   getDefaultBranch,
   getRecursiveTree,
   getBlobText,
+  getBlobBytes,
   getAuthenticatedUser,
   getBranchHead,
   tryGetBranchHead,
@@ -20,9 +22,9 @@ import {
   updateRef,
 } from './lib/github.js';
 import { parseFrontmatter } from './lib/frontmatter.js';
-import { detectAgents, deploySkill } from './lib/agents.js';
+import { detectAgents, deploySkill, removeSkill, findRemainingDeployments } from './lib/agents.js';
 import { validateSkillFolder } from './lib/validate.js';
-import { walkSkillFiles } from './lib/localfs.js';
+import { walkSkillFiles, findSecretFiles } from './lib/localfs.js';
 
 // Independent of where this tool's own code lives — set SKILL_LIBRARY_PATH to
 // point at wherever pulled skills should be stored locally.
@@ -34,6 +36,11 @@ const LIBRARY_ROOT = process.env.SKILL_LIBRARY_PATH
 // follow-up pull_skill) don't re-fetch the whole repo tree every time.
 const treeCache = new Map(); // key -> { at, tree, truncated }
 const TREE_TTL_MS = 5 * 60 * 1000;
+// A full recursive tree is megabytes for a large repo, and search_all_sources
+// loads one per configured source — without a bound, a long-lived server
+// accumulates every tree it has ever seen. Map preserves insertion order, so
+// the first key is the oldest.
+const TREE_CACHE_MAX = 24;
 
 async function loadTree(owner, repo, ref) {
   await ensureGhReady();
@@ -43,7 +50,9 @@ async function loadTree(owner, repo, ref) {
   if (cached && Date.now() - cached.at < TREE_TTL_MS) return { ...cached, ref: resolvedRef };
   const { tree, truncated } = await getRecursiveTree(owner, repo, resolvedRef);
   const entry = { at: Date.now(), tree, truncated };
+  treeCache.delete(key); // re-insert so a refreshed entry counts as newest
   treeCache.set(key, entry);
+  while (treeCache.size > TREE_CACHE_MAX) treeCache.delete(treeCache.keys().next().value);
   return { ...entry, ref: resolvedRef };
 }
 
@@ -57,10 +66,60 @@ function skillDirsFromTree(tree) {
     }));
 }
 
-const server = new McpServer({ name: 'skill-bridge', version: '0.1.0' });
+// A skill name is one folder directly under LIBRARY_ROOT — never a path.
+// Without this, a `skillName` like "../../Documents" escapes the library
+// entirely, which for remove_skill meant a recursive delete of whatever it
+// landed on. Skill content is pulled from outside repos and read by an agent,
+// so a hostile skill could talk an agent into passing exactly that.
+function resolveSkillDir(skillName) {
+  const name = String(skillName ?? '');
+  if (!name || name === '.' || name === '..' || name.includes('/') || name.includes('\\') || path.isAbsolute(name)) {
+    return null;
+  }
+  const root = path.resolve(LIBRARY_ROOT);
+  const resolved = path.resolve(root, name);
+  // Defence in depth: even a separator-free name must still land inside root.
+  if (resolved !== path.join(root, name) || !resolved.startsWith(root + path.sep)) return null;
+  return resolved;
+}
+
+const BAD_SKILL_NAME_MSG =
+  'Invalid skillName — it must be a single folder name directly under the skill library (no "/", "\\", "..", or absolute path).';
+
+// Known skill repos to search across in one call: sources.json ships with
+// this package (shared, edit via a PR to this repo); sources.local.json is
+// optional and lives in LIBRARY_ROOT instead (personal, never committed —
+// add your own private repos there without touching the shared list).
+const PACKAGE_ROOT = path.dirname(fileURLToPath(import.meta.url));
+
+function loadSources() {
+  const sources = [];
+  const seen = new Set();
+  for (const p of [path.join(PACKAGE_ROOT, 'sources.json'), path.join(LIBRARY_ROOT, 'sources.local.json')]) {
+    if (!fs.existsSync(p)) continue;
+    let parsed;
+    try {
+      parsed = JSON.parse(fs.readFileSync(p, 'utf8'));
+    } catch (err) {
+      // Naming the file matters: the local one is hand-edited, and a bare
+      // "Unexpected token" from deep inside a tool call is unfixable noise.
+      throw new Error(`Could not read skill sources from ${p}: ${String(err?.message || err)}`);
+    }
+    for (const s of parsed?.sources || []) {
+      if (!s?.owner || !s?.repo) continue;
+      const key = `${s.owner}/${s.repo}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      sources.push(s);
+    }
+  }
+  return sources;
+}
+
+const server = new McpServer({ name: 'mcp-skill-lib', version: '0.1.0' });
 
 server.registerTool(
-  'skillbridge_search_remote_skills',
+  'mcpskilllib_search_remote_skills',
   {
     description:
       'Find Agent Skills (SKILL.md folders) in a GitHub repo by folder-path substring, without downloading the repo. Returns name+description only for the matched page. Use this before pull_skill.',
@@ -117,10 +176,102 @@ server.registerTool(
 );
 
 server.registerTool(
-  'skillbridge_pull_skill',
+  'mcpskilllib_search_all_sources',
   {
     description:
-      'Fetch specific skill folders (as returned by skillbridge_search_remote_skills) from a GitHub repo — only those folders, not the whole repo — and copy them into the local canonical skill library (SKILL-LIB/).',
+      'Search for skills across every repo listed in sources.json (shared with the team, edit via a PR to this package) plus sources.local.json (optional, personal repos, lives in SKILL_LIBRARY_PATH and is never committed) — one call instead of calling mcpskilllib_search_remote_skills once per repo. Use this when you don\'t know which specific repo a skill lives in; use mcpskilllib_search_remote_skills instead when you already know the exact repo.',
+    inputSchema: {
+      query: z.string().optional().describe('Case-insensitive substring to match against the skill folder path (cheap, no content fetch). Omit to list every skill from every source.'),
+      limit: z.number().int().min(1).max(200).default(50).describe('Max results to return in total, across all sources combined'),
+    },
+    outputSchema: {
+      items: z.array(z.object({
+        path: z.string(),
+        name: z.string().nullable(),
+        description: z.string().nullable(),
+        source: z.object({ owner: z.string(), repo: z.string() }),
+      })),
+      sourcesSearched: z.array(z.object({
+        owner: z.string(),
+        repo: z.string(),
+        status: z.enum(['ok', 'error']),
+        matched: z.number().optional(),
+        error: z.string().optional(),
+      })),
+      totalMatched: z.number(),
+    },
+  },
+  async ({ query, limit }) => {
+    const sources = loadSources();
+    if (sources.length === 0) {
+      return {
+        content: [{ type: 'text', text: 'No sources configured — add at least one to sources.json (shared) or sources.local.json (personal, under SKILL_LIBRARY_PATH).' }],
+        isError: true,
+      };
+    }
+
+    const matches = [];
+    const sourcesSearched = [];
+    // Pass 1 — tree only. Matching is a path-substring test, so the whole
+    // match set is known without fetching a single SKILL.md. Sequential, not
+    // parallel: loadTree/getBlobText share one GitHub CLI process at a time in
+    // practice, and this keeps per-source error reporting unambiguous.
+    for (const src of sources) {
+      try {
+        const { tree } = await loadTree(src.owner, src.repo, src.ref);
+        let dirs = skillDirsFromTree(tree);
+        if (query) {
+          const q = query.toLowerCase();
+          dirs = dirs.filter((d) => d.dir.toLowerCase().includes(q));
+        }
+        for (const d of dirs) matches.push({ src, dir: d });
+        sourcesSearched.push({ owner: src.owner, repo: src.repo, status: 'ok', matched: dirs.length });
+      } catch (err) {
+        sourcesSearched.push({ owner: src.owner, repo: src.repo, status: 'error', error: String(err?.message || err) });
+      }
+    }
+
+    const totalMatched = matches.length;
+    // Pass 2 — one blob fetch per RETURNED row, not per match. An empty query
+    // across a few sizeable repos is hundreds of matches; fetching them all
+    // just to throw away everything past `limit` is the difference between a
+    // couple of seconds and several minutes.
+    const items = [];
+    for (const { src, dir } of matches.slice(0, limit)) {
+      let fm = {};
+      try {
+        fm = parseFrontmatter(await getBlobText(src.owner, src.repo, dir.sha)) || {};
+      } catch {
+        // The folder is a real match either way — report it with null
+        // name/description rather than dropping it or failing the whole call.
+      }
+      items.push({
+        path: dir.dir,
+        name: fm.name || null,
+        description: fm.description || null,
+        source: { owner: src.owner, repo: src.repo },
+      });
+    }
+    const listing = items
+      .map((it) => `- ${it.name || it.path} (${it.source.owner}/${it.source.repo}: ${it.path})${it.description ? `: ${it.description}` : ''}`)
+      .join('\n');
+    const failedSources = sourcesSearched.filter((s) => s.status === 'error');
+    const failedNote = failedSources.length
+      ? `\n\nSkipped ${failedSources.length} source(s) that errored: ${failedSources.map((s) => `${s.owner}/${s.repo} (${s.error})`).join('; ')}`
+      : '';
+    const summary = `Found ${totalMatched} matching skill(s) across ${sources.length} source(s); returning ${items.length}.`;
+    return {
+      content: [{ type: 'text', text: (items.length ? `${summary}\n\n${listing}` : summary) + failedNote }],
+      structuredContent: { items, sourcesSearched, totalMatched },
+    };
+  },
+);
+
+server.registerTool(
+  'mcpskilllib_pull_skill',
+  {
+    description:
+      'Fetch specific skill folders (as returned by mcpskilllib_search_remote_skills) from a GitHub repo — only those folders, not the whole repo — and copy them into the local canonical skill library (SKILL-LIB/).',
     inputSchema: {
       owner: z.string(),
       repo: z.string(),
@@ -150,13 +301,38 @@ server.registerTool(
         pulled.push({ path: skillPath, name: folderName, localPath: '', status: 'error', warnings: ['No SKILL.md found under this path in the repo tree'] });
         continue;
       }
-      const destRoot = path.join(LIBRARY_ROOT, folderName);
+      // Same guard as deploy/remove: the folder this writes into must be one
+      // name directly under the library, never a path the repo (or a crafted
+      // skillPath like "a/..") can steer somewhere else.
+      const destRoot = resolveSkillDir(folderName);
+      if (!destRoot) {
+        pulled.push({ path: skillPath, name: folderName, localPath: '', status: 'error', warnings: [BAD_SKILL_NAME_MSG] });
+        continue;
+      }
+      let escaped = null;
       for (const f of files) {
         const rel = f.path.slice(prefix.length);
-        const destFile = path.join(destRoot, rel);
+        const destFile = path.resolve(destRoot, rel);
+        // Repo-controlled path, so treat it like an archive entry: anything
+        // that resolves outside destRoot is a zip-slip and aborts the skill.
+        if (destFile !== path.join(destRoot, rel) || !destFile.startsWith(destRoot + path.sep)) {
+          escaped = f.path;
+          break;
+        }
         fs.mkdirSync(path.dirname(destFile), { recursive: true });
-        const text = await getBlobText(owner, repo, f.sha);
-        fs.writeFileSync(destFile, text);
+        // Bytes, not text: a skill folder can hold images/PDFs/fonts, and a
+        // utf8 round-trip rewrites every non-UTF8 byte to U+FFFD.
+        fs.writeFileSync(destFile, await getBlobBytes(owner, repo, f.sha));
+      }
+      if (escaped) {
+        pulled.push({
+          path: skillPath,
+          name: folderName,
+          localPath: '',
+          status: 'error',
+          warnings: [`Repo entry "${escaped}" resolves outside the skill folder — refusing to write it (path traversal).`],
+        });
+        continue;
       }
       const skillMd = fs.readFileSync(path.join(destRoot, 'SKILL.md'), 'utf8');
       const fm = parseFrontmatter(skillMd) || {};
@@ -186,7 +362,7 @@ server.registerTool(
 );
 
 server.registerTool(
-  'skillbridge_detect_agents',
+  'mcpskilllib_detect_agents',
   {
     description:
       'Detect which agent CLIs (Claude Code, Codex, OpenCode, Cursor, Gemini CLI, GitHub Copilot) are installed on THIS machine, at global and project scope, by checking their known skill directories.',
@@ -214,12 +390,12 @@ server.registerTool(
 );
 
 server.registerTool(
-  'skillbridge_deploy_skill',
+  'mcpskilllib_deploy_skill',
   {
     description:
       'Symlink (junction on Windows) a skill already pulled into SKILL-LIB/ into every detected agent skill directory on this machine (Claude Code, Codex, OpenCode, Cursor, Gemini CLI, GitHub Copilot), so any agent here can use it. Falls back to copying if symlinking is unavailable in this environment. Never overwrites an existing non-symlink folder. IMPORTANT for the calling agent: before invoking this tool, ask the user which scope(s) to install into — "global" (available to every project on this machine) vs "project" (only this project, and shared with collaborators if committed) — the same way Claude Code\'s own plugin installer asks "Install for you (user scope)" vs "Install for all collaborators on this repository (project scope)". Do not default to deploying to every detected location without asking first, unless the user has already told you which scope(s) they want.',
     inputSchema: {
-      skillName: z.string().describe('Folder name under SKILL-LIB/, as returned by skillbridge_pull_skill'),
+      skillName: z.string().describe('Folder name under SKILL-LIB/, as returned by mcpskilllib_pull_skill'),
       cwd: z.string().optional(),
       targets: z.array(z.enum(['claude-code', 'codex', 'opencode', 'cursor', 'gemini', 'copilot'])).optional().describe('Restrict to these agents only (default: all detected)'),
       scopes: z.array(z.enum(['global', 'project'])).optional().describe('Restrict to these scope(s) only (default: both). Ask the user which scope(s) they want before calling this tool — see the tool description.'),
@@ -229,10 +405,13 @@ server.registerTool(
     },
   },
   async ({ skillName, cwd, targets, scopes }) => {
-    const sourceDir = path.join(LIBRARY_ROOT, skillName);
+    const sourceDir = resolveSkillDir(skillName);
+    if (!sourceDir) {
+      return { content: [{ type: 'text', text: BAD_SKILL_NAME_MSG }], isError: true };
+    }
     if (!fs.existsSync(path.join(sourceDir, 'SKILL.md'))) {
       return {
-        content: [{ type: 'text', text: `No SKILL.md found at ${sourceDir}. Run skillbridge_pull_skill first.` }],
+        content: [{ type: 'text', text: `No SKILL.md found at ${sourceDir}. Run mcpskilllib_pull_skill first.` }],
         isError: true,
       };
     }
@@ -259,7 +438,81 @@ server.registerTool(
 );
 
 server.registerTool(
-  'skillbridge_validate_skill',
+  'mcpskilllib_remove_skill',
+  {
+    description:
+      'Undo mcpskilllib_deploy_skill, and optionally delete the skill from SKILL-LIB/ too — the two-step manual cleanup (remove the symlink from every agent\'s skill folder, then delete the source folder) that this project previously had no tool for. Only ever removes a symlink that actually resolves back to this skill\'s SKILL-LIB folder — a same-named real folder, or a symlink pointing somewhere else, is left untouched and reported as skipped rather than deleted. IMPORTANT for the calling agent: this permanently deletes local files with no undo (SKILL_LIBRARY_PATH is not git-tracked) — confirm with the user which skill and whether to also delete it from SKILL-LIB/ (keepInLibrary) before calling this, the same way mcpskilllib_deploy_skill requires confirming scope first.',
+    inputSchema: {
+      skillName: z.string().describe('Folder name under SKILL-LIB/, as returned by mcpskilllib_pull_skill or already present locally'),
+      cwd: z.string().optional(),
+      targets: z.array(z.enum(['claude-code', 'codex', 'opencode', 'cursor', 'gemini', 'copilot'])).optional().describe('Restrict to these agents only (default: all detected)'),
+      scopes: z.array(z.enum(['global', 'project'])).optional().describe('Restrict to these scope(s) only (default: both)'),
+      keepInLibrary: z.boolean().optional().default(false).describe('Set true to only remove the deployed symlinks and leave the SKILL-LIB/ source folder in place. Default false also deletes the source folder — confirm this with the user first.'),
+    },
+    outputSchema: {
+      undeployed: z.array(z.object({ agent: z.string(), scope: z.string(), skillsDir: z.string(), status: z.string(), path: z.string().optional(), note: z.string().optional(), error: z.string().optional() })),
+      libraryRemoved: z.boolean(),
+      libraryPath: z.string(),
+      librarySkipReason: z.string().optional().describe('Why the source folder was kept even though keepInLibrary was false (it is still deployed somewhere).'),
+    },
+  },
+  async ({ skillName, cwd, targets, scopes, keepInLibrary }) => {
+    const sourceDir = resolveSkillDir(skillName);
+    if (!sourceDir) {
+      return { content: [{ type: 'text', text: BAD_SKILL_NAME_MSG }], isError: true };
+    }
+    if (!fs.existsSync(sourceDir)) {
+      return {
+        content: [{ type: 'text', text: `No skill folder found at ${sourceDir} — nothing to remove.` }],
+        isError: true,
+      };
+    }
+    const allAgents = detectAgents(cwd || process.cwd());
+    let agents = allAgents;
+    if (targets?.length) agents = agents.filter((a) => targets.includes(a.agent));
+    if (scopes?.length) agents = agents.filter((a) => scopes.includes(a.scope));
+    const undeployed = removeSkill(sourceDir, agents);
+
+    // Deleting the library folder while anything still points at it recreates
+    // the dangling-symlink mess this tool exists to clean up — so check every
+    // detected agent, including ones this call was not asked to undeploy.
+    const remaining = findRemainingDeployments(sourceDir, allAgents);
+    let libraryRemoved = false;
+    let librarySkipReason;
+    if (!keepInLibrary) {
+      if (remaining.length) {
+        librarySkipReason =
+          `still deployed at ${remaining.length} location(s) — ` +
+          `${remaining.map((r) => `${r.agent}/${r.scope} (${r.kind})`).join(', ')}. ` +
+          'Undeploy those first (drop the targets/scopes filter), or remove them by hand if they are not symlinks.';
+      } else {
+        fs.rmSync(sourceDir, { recursive: true, force: true });
+        libraryRemoved = true;
+      }
+    }
+
+    const listing = undeployed
+      .map((r) => {
+        const extra = r.note ? ` [${r.note}]` : r.error ? ` [error: ${r.error}]` : '';
+        return `- ${r.agent} (${r.scope}): ${r.status}${extra}`;
+      })
+      .join('\n');
+    const removedCount = undeployed.filter((r) => r.status === 'removed').length;
+    const libraryLine = libraryRemoved
+      ? `Deleted the source folder at ${sourceDir}.`
+      : keepInLibrary
+        ? `Left the source folder at ${sourceDir} in place (keepInLibrary was set).`
+        : `Kept the source folder at ${sourceDir}: ${librarySkipReason}`;
+    const summary = `Removed "${skillName}" from ${removedCount} agent location(s). ${libraryLine}`;
+    return {
+      content: [{ type: 'text', text: undeployed.length ? `${summary}\n\n${listing}` : summary }],
+      structuredContent: { undeployed, libraryRemoved, libraryPath: sourceDir, ...(librarySkipReason ? { librarySkipReason } : {}) },
+    };
+  },
+);
+
+server.registerTool(
+  'mcpskilllib_validate_skill',
   {
     description:
       'Check a local skill folder against the same 4 rules SKILL-LIB\'s CI lint enforces (frontmatter parses, only name/description keys allowed, name format/length/folder-match, non-empty description). No network calls — safe to call repeatedly. This is a fast local approximation, not a substitute for the real CI lint job: the frontmatter reader used here is not a full YAML parser.',
@@ -290,12 +543,12 @@ server.registerTool(
 );
 
 server.registerTool(
-  'skillbridge_push_skill',
+  'mcpskilllib_push_skill',
   {
     description:
-      'Validate (fail-closed — refuses if invalid, no GitHub calls made) then push a local skill folder to a GitHub repo as ONE atomic commit (Git Data API: blob per file -> tree -> commit -> ref update), so a skill created locally on some agent can be published back to the shared library. Writes a per-skill .meta.json (uploadedBy/uploadedAt/updatedBy/updatedAt) in the same commit. NEVER pushes directly to the repo\'s default branch (main/master) — it always targets a feature branch (auto-named "skill/<skillName>" if you don\'t pass one), creating that branch from the current default-branch head if it doesn\'t exist yet, matching this project\'s own "never push to main without confirmation, default to a feature branch + PR" convention. The recommended full workflow for the calling agent: (1) call this tool to push to the feature branch, (2) call skillbridge_search_remote_skills/skillbridge_pull_skill with ref=<that branch> to pull it back down and verify it round-tripped correctly, (3) if that looks right, open a PR (e.g. via `gh pr create --base <default branch> --head <feature branch>`) for a human reviewer to check and merge — do not merge it yourself. IMPORTANT: ask the user for their name/email/GitHub username (the `identity` field) BEFORE calling this tool — do not guess or reuse a value from earlier context. The tool independently checks that identity against the account `gh` is logged in as, and refuses on a mismatch unless confirmMismatch is explicitly set. Needs the GitHub CLI (`gh`) installed and logged in (`gh auth login`) on this machine, with write access to the target repo — ask a repo admin to add you as a collaborator if you don\'t have it.',
+      'Validate (fail-closed — refuses if invalid, no GitHub calls made) then push a local skill folder to a GitHub repo as ONE atomic commit (Git Data API: blob per file -> tree -> commit -> ref update), so a skill created locally on some agent can be published back to the shared library. Writes a per-skill .meta.json (uploadedBy/uploadedAt/updatedBy/updatedAt) in the same commit. NEVER pushes directly to the repo\'s default branch (main/master) — it always targets a feature branch (auto-named "skill/<skillName>" if you don\'t pass one), creating that branch from the current default-branch head if it doesn\'t exist yet, matching this project\'s own "never push to main without confirmation, default to a feature branch + PR" convention. The recommended full workflow for the calling agent: (1) call this tool to push to the feature branch, (2) call mcpskilllib_search_remote_skills/mcpskilllib_pull_skill with ref=<that branch> to pull it back down and verify it round-tripped correctly, (3) if that looks right, open a PR (e.g. via `gh pr create --base <default branch> --head <feature branch>`) for a human reviewer to check and merge — do not merge it yourself. IMPORTANT: ask the user for their name/email/GitHub username (the `identity` field) BEFORE calling this tool — do not guess or reuse a value from earlier context. The tool independently checks that identity against the account `gh` is logged in as, and refuses on a mismatch unless confirmMismatch is explicitly set. Needs the GitHub CLI (`gh`) installed and logged in (`gh auth login`) on this machine, with write access to the target repo — ask a repo admin to add you as a collaborator if you don\'t have it.',
     inputSchema: {
-      skillPath: z.string().describe('Absolute local folder path to the skill to push (must pass the same checks as skillbridge_validate_skill; this tool refuses to push otherwise)'),
+      skillPath: z.string().describe('Absolute local folder path to the skill to push (must pass the same checks as mcpskilllib_validate_skill; this tool refuses to push otherwise)'),
       owner: z.string(),
       repo: z.string(),
       branch: z
@@ -322,7 +575,7 @@ server.registerTool(
       commitMessage: z.string().optional().describe('Override the default commit message ("feat(library): Add/Update <skillName> skill")'),
     },
     outputSchema: {
-      status: z.enum(['pushed', 'validation-failed', 'identity-mismatch', 'conflict']),
+      status: z.enum(['pushed', 'validation-failed', 'secrets-detected', 'identity-mismatch', 'conflict']),
       skillName: z.string().nullable(),
       isUpdate: z.boolean().optional(),
       commitSha: z.string().optional(),
@@ -361,6 +614,35 @@ server.registerTool(
       };
     }
     const skillName = v.name;
+
+    // 1b. Credential sweep — also before any GitHub call. push_skill uploads
+    // every file under the folder, so a stray .env or private key would be
+    // published to a shared repo where it can't be un-seen. Fail closed and
+    // name the files: there is no "push it anyway" flag on purpose.
+    const files = walkSkillFiles(skillPath);
+    const secrets = findSecretFiles(files);
+    if (secrets.length) {
+      const listing = secrets.map((s) => `- ${s}`).join('\n');
+      return {
+        content: [
+          {
+            type: 'text',
+            text:
+              `Refusing to push — the skill folder contains ${secrets.length} file(s) that look like credentials:\n\n${listing}\n\n` +
+              'Remove them from the skill folder (or rename to .example/.sample if they are templates) and push again. ' +
+              'Anything pushed to a shared repo should be assumed permanently visible to everyone with access.',
+          },
+        ],
+        isError: true,
+        structuredContent: {
+          status: 'secrets-detected',
+          skillName,
+          filesPushed: [],
+          issues: secrets.map((s) => `looks like a credential file: ${s}`),
+          warnings: [],
+        },
+      };
+    }
 
     await ensureGhReady();
     const defaultBranch = await getDefaultBranch(owner, repo);
@@ -451,8 +733,7 @@ server.registerTool(
     }
     const meta = { uploadedBy, uploadedAt, updatedBy: identity, updatedAt: nowIso, verifiedAgainstGhAccount };
 
-    // 5. Blob every real file, plus the synthesized .meta.json.
-    const files = walkSkillFiles(skillPath);
+    // 5. Blob every real file (listed in step 1b), plus the synthesized .meta.json.
     const entries = [];
     for (const f of files) {
       const buf = fs.readFileSync(f.absolutePath);

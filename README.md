@@ -1,6 +1,6 @@
 # mcp-skill-library
 
-MCP server (`skill-bridge`) that lets any MCP-capable agent — Claude Code, Claude
+MCP server (`mcp-skill-lib`) that lets any MCP-capable agent — Claude Code, Claude
 Desktop, OpenCode, Codex CLI, or any other client that speaks MCP — browse and
 pull [Agent Skills](https://agentskills.io/home) (`SKILL.md` folders) from a
 GitHub repo, deploy them into whichever agent's local skills folder exists on
@@ -27,7 +27,7 @@ server", the exact steps are below — no guessing required.
   from**, if that repo is private — ask a repo admin to add your GitHub
   account. This is enforced by GitHub itself (a non-collaborator's `gh`
   session simply can't read a private repo), not by anything in this code.
-  `skillbridge_push_skill` additionally needs **write** access on the target
+  `mcpskilllib_push_skill` additionally needs **write** access on the target
   repo.
 - **If this machine ever ran an older, token-based version of this server:
   unset `GITHUB_TOKEN` (and `GH_TOKEN`) from its environment.** `gh` uses
@@ -72,7 +72,7 @@ config — auth comes entirely from the `gh auth login` session on the machine.
 
 **Claude Code**
 ```bash
-claude mcp add --scope user skill-bridge -- node /absolute/path/to/mcp-skill-library/index.js
+claude mcp add --scope user mcp-skill-lib -- node /absolute/path/to/mcp-skill-library/index.js
 ```
 
 **Claude Desktop** — edit `claude_desktop_config.json` via the app's
@@ -83,7 +83,7 @@ Microsoft Store install, which uses a different, sandboxed path than the
 ```json
 {
   "mcpServers": {
-    "skill-bridge": {
+    "mcp-skill-lib": {
       "command": "node",
       "args": ["/absolute/path/to/mcp-skill-library/index.js"]
     }
@@ -93,7 +93,7 @@ Microsoft Store install, which uses a different, sandboxed path than the
 
 **OpenCode** — add to `opencode.json`:
 ```json
-"skill-bridge": {
+"mcp-skill-lib": {
   "type": "local",
   "command": ["node", "/absolute/path/to/mcp-skill-library/index.js"]
 }
@@ -101,7 +101,7 @@ Microsoft Store install, which uses a different, sandboxed path than the
 
 **Codex CLI** — add to `~/.codex/config.toml`:
 ```toml
-[mcp_servers.skill-bridge]
+[mcp_servers.mcp-skill-lib]
 command = "node"
 args = ["/absolute/path/to/mcp-skill-library/index.js"]
 ```
@@ -115,7 +115,7 @@ MCP Servers** → **View raw config**, or edit the file directly at
 ```json
 {
   "mcpServers": {
-    "skill-bridge": {
+    "mcp-skill-lib": {
       "command": "node",
       "args": ["/absolute/path/to/mcp-skill-library/index.js"]
     }
@@ -130,18 +130,18 @@ Restart the agent after editing its config — MCP config is only read on startu
 Don't want to type any of the commands above by hand? Paste the block below
 as-is into a chat with any MCP-capable agent (Claude Code, Claude Desktop,
 OpenCode, Codex CLI, Antigravity IDE...) running on the target machine. It
-detects which agent it is, registers `skill-bridge` the right way for that
+detects which agent it is, registers `mcp-skill-lib` the right way for that
 agent, and verifies the install — without you touching a config file.
 
 ```text
-Install and register the "skill-bridge" MCP server
+Install and register the "mcp-skill-lib" MCP server
 (@aidev3-web/mcp-skill-library) for yourself on this machine. Do this:
 
 1. Check `node --version` is 18 or higher. If Node.js is missing or too
    old, tell me how to install/upgrade it and stop.
 
-2. Check whether "skill-bridge" is already registered for you, at any
-   scope (e.g. `claude mcp list` / `claude mcp get skill-bridge` for
+2. Check whether "mcp-skill-lib" is already registered for you, at any
+   scope (e.g. `claude mcp list` / `claude mcp get mcp-skill-lib` for
    Claude Code, or the equivalent config file for your agent type). If
    it already exists:
    - Show me exactly what it's currently pointing at (command, scope)
@@ -193,7 +193,7 @@ Install and register the "skill-bridge" MCP server
 8. Tell me to restart you (or reload MCP servers) so the new config
    is picked up.
 
-9. Once restarted, call the `skillbridge_detect_agents` tool once and
+9. Once restarted, call the `mcpskilllib_detect_agents` tool once and
    report back which agent locations were found on this machine, to
    confirm the server is actually running.
 ```
@@ -202,23 +202,42 @@ Install and register the "skill-bridge" MCP server
 
 | Tool | Does |
 |---|---|
-| `skillbridge_search_remote_skills` | Find `SKILL.md` folders in a GitHub repo by path substring — no full clone, paginated |
-| `skillbridge_pull_skill` | Fetch specific skill folders and copy them into the local skill library |
-| `skillbridge_detect_agents` | Detect which agents (Claude Code, Codex, OpenCode, Cursor, Gemini CLI, GitHub Copilot) have a skills folder on this machine |
-| `skillbridge_deploy_skill` | Symlink a pulled skill into every detected agent's skills folder (falls back to a copy if symlinking isn't available). Takes an optional `scopes` filter (`global`/`project`) — the calling agent should ask the user which scope(s) they want before calling this, the same way Claude Code's own plugin installer asks "user scope" vs "project scope" |
-| `skillbridge_validate_skill` | Check a local skill folder against the same 4 rules SKILL-LIB's CI lint enforces (frontmatter parses, only name/description keys, name format/length/folder-match, non-empty description) — no network, safe to call repeatedly |
-| `skillbridge_push_skill` | Validate (fail-closed) then push a local skill folder to a GitHub repo as one atomic commit via the Git Data API, with an identity cross-check against the account `gh` is logged in as, and a per-skill `.meta.json` tracking uploadedBy/uploadedAt/updatedBy/updatedAt |
+| `mcpskilllib_search_remote_skills` | Find `SKILL.md` folders in a GitHub repo by path substring — no full clone, paginated |
+| `mcpskilllib_search_all_sources` | Same search, but across every repo listed in `sources.json` (shared, versioned in this package) plus `sources.local.json` (optional, personal, under `SKILL_LIBRARY_PATH`) — one call instead of calling `mcpskilllib_search_remote_skills` once per repo |
+| `mcpskilllib_pull_skill` | Fetch specific skill folders and copy them into the local skill library |
+| `mcpskilllib_detect_agents` | Detect which agents (Claude Code, Codex, OpenCode, Cursor, Gemini CLI, GitHub Copilot) have a skills folder on this machine |
+| `mcpskilllib_deploy_skill` | Symlink a pulled skill into every detected agent's skills folder (falls back to a copy if symlinking isn't available). Takes an optional `scopes` filter (`global`/`project`) — the calling agent should ask the user which scope(s) they want before calling this, the same way Claude Code's own plugin installer asks "user scope" vs "project scope" |
+| `mcpskilllib_remove_skill` | Undo `deploy_skill` — remove the symlinks from every agent's skill folder, and (unless `keepInLibrary: true`) delete the skill from `SKILL-LIB/` too. Only ever removes a symlink that actually resolves back to this skill; a same-named real folder is left untouched. Permanent, no undo — the calling agent should confirm with the user first |
+| `mcpskilllib_validate_skill` | Check a local skill folder against the same 4 rules SKILL-LIB's CI lint enforces (frontmatter parses, only name/description keys, name format/length/folder-match, non-empty description) — no network, safe to call repeatedly |
+| `mcpskilllib_push_skill` | Validate (fail-closed) then push a local skill folder to a GitHub repo as one atomic commit via the Git Data API, with an identity cross-check against the account `gh` is logged in as, and a per-skill `.meta.json` tracking uploadedBy/uploadedAt/updatedBy/updatedAt |
+
+See [`docs/USAGE.md`](docs/USAGE.md) for a step-by-step walkthrough of each
+tool (real input/output examples) and a troubleshooting table.
+
+### What the tools refuse to do
+
+These are enforced in code, not just documented — `test/security.test.js`
+covers each one:
+
+| Guard | Why |
+|---|---|
+| `skillName` must be a single folder name directly under the library — no `/`, `\`, `..` or absolute path (`deploy_skill`, `remove_skill`, `pull_skill`'s destination) | Skill content comes from outside repos and is read by an agent. Without this, a `skillName` of `../../Documents` made `remove_skill` a recursive delete of whatever it landed on |
+| A repo entry that resolves outside the destination folder aborts that skill's pull | Classic zip-slip: the repo controls those paths, this machine shouldn't trust them |
+| `remove_skill` won't delete the library folder while any detected agent still links to it | Otherwise a scoped removal (`scopes: ["global"]`) leaves the project-scope symlink dangling. Reported as `librarySkipReason` |
+| `push_skill` refuses the whole push if the folder holds anything credential-shaped (`.env`, `*.pem`, `id_rsa`, …; `.env.example` is fine) | A shared repo push can't be un-seen. There is deliberately no override flag |
+| `owner`/`repo` must match `[A-Za-z0-9._-]{1,100}` before they reach an API path | Every GitHub path is built by interpolation; a `/` or `?` in a name would reshape the request |
+| `pull_skill` writes raw bytes, never a UTF-8 round-trip | Verified against a real 78 KB font: the old text path inflated it to 98 KB of U+FFFD. Skills legitimately ship PDFs, images and fonts |
 
 ### Recommended workflow for publishing a locally-created skill
 
-`skillbridge_push_skill` never pushes straight to the repo's default branch
+`mcpskilllib_push_skill` never pushes straight to the repo's default branch
 (`main`/`master`) — it always targets a feature branch (auto-named
 `skill/<skillName>` if you don't pass one), creating it from the current
 default-branch head if it doesn't exist yet. The full recommended flow:
 
-1. **Push** — `skillbridge_push_skill` to the feature branch.
-2. **Pull it back down to verify** — `skillbridge_search_remote_skills` /
-   `skillbridge_pull_skill` with `ref` set to that same branch, to confirm
+1. **Push** — `mcpskilllib_push_skill` to the feature branch.
+2. **Pull it back down to verify** — `mcpskilllib_search_remote_skills` /
+   `mcpskilllib_pull_skill` with `ref` set to that same branch, to confirm
    the skill round-tripped correctly (not just trusting the local copy).
 3. **Open a PR** — e.g. `gh pr create --base <default branch> --head
    skill/<skillName>` — once step 2 looks right.
@@ -237,6 +256,15 @@ escape hatch, not the default path.
   `GITHUB_TOKEN` (or any other token) anywhere in this codebase.
 - `SKILL_LIBRARY_PATH` (optional) — where `pull_skill`/`deploy_skill` read and
   write skill content locally. Defaults to `~/.skill-library`.
+- `sources.json` (in this package) — the shared list of repos
+  `mcpskilllib_search_all_sources` searches across. Add a repo by opening a
+  PR to this file:
+  ```json
+  { "sources": [{ "owner": "your-org", "repo": "your-skill-repo", "note": "what this is" }] }
+  ```
+- `sources.local.json` (optional, in `SKILL_LIBRARY_PATH`, e.g.
+  `~/.skill-library/sources.local.json`) — same shape, for private repos you
+  want included without touching the shared list. Never committed.
 
 ### Getting a new person access
 
@@ -251,3 +279,16 @@ escape hatch, not the default path.
    agent" above — no `env` block, no secret to hand over securely, nothing
    for this project to rotate or revoke. Revoking someone's access is just
    removing them as a repo collaborator on GitHub.
+
+## Tests
+
+```bash
+npm test    # node --test, no network and no `gh` required
+```
+
+`test/github.test.js` covers the `gh` layer's error translation through the
+`__setGhRunner` seam (a missing binary, a 404, a 403, a logged-out session).
+`test/security.test.js` boots the real server over stdio and asserts each
+refusal in "What the tools refuse to do" above — every one of them was first
+demonstrated as a working exploit against this server, so a failure there
+means that hole is open again.
