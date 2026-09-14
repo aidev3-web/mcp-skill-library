@@ -148,15 +148,19 @@ the sessions above and report real evidence.
 
 *Call 2 — skillPath + results, once all 6 layers are done:*
 ```json
-{ "skillPath": "/home/you/.skill-library/my-new-skill", "results": { "layer0Passed": true, "trigger": { "positivePrompt": "...", "positiveFired": true, "negativePrompt": "...", "negativeFired": false, "sessionEvidence": "..." }, "outcome": { "withSkillResult": "...", "withoutSkillResult": "...", "skillHelped": true }, "stability": { "runs": 3, "consistent": true, "notes": "..." }, "edgeCase": { "score": 17, "notes": "..." }, "scope": { "score": 18, "notes": "..." }, "score": 88, "summary": "no concerns" } }
+{ "skillPath": "/home/you/.skill-library/my-new-skill", "results": { "layer0Passed": true, "trigger": { "positivePrompt": "...", "positiveRawOutput": "<literal text the positive-prompt session produced>", "positiveFired": true, "negativePrompt": "...", "negativeRawOutput": "<literal text the negative-prompt session produced>", "negativeFired": false, "sessionEvidence": "..." }, "outcome": { "withSkillRawOutput": "<literal with-skill session output>", "withoutSkillRawOutput": "<literal without-skill session output>", "skillHelped": true }, "stability": { "runs": 3, "runOutputs": ["<run 1 literal output>", "<run 2 literal output>", "<run 3 literal output>"], "consistent": true, "notes": "..." }, "edgeCase": { "score": 17, "notes": "..." }, "scope": { "score": 18, "notes": "..." }, "score": 88, "summary": "no concerns" } }
 ```
 ```json
 { "skillPath": "...", "layer0Passed": true, "reportPath": "/home/you/.skill-library/my-new-skill.benchmark-report.html", "overallPassed": true }
 ```
 This writes a permanent, human-readable HTML report — a table of all 6 layers
-with pass/fail and the actual evidence — next to the skill folder (never
-inside it, so it's never accidentally pushed as skill content). Pass that
-same `results` object as `push_skill`'s `benchmark` argument next.
+with pass/fail, plus the literal raw output of every Layer 1-3 session
+embedded as a terminal-styled block under its row (not a paraphrase — this
+server has no screenshot capability, so the raw text is the closest
+verifiable substitute: anyone reading the report can check it themselves) —
+next to the skill folder (never inside it, so it's never accidentally pushed
+as skill content). Pass that same `results` object as `push_skill`'s
+`benchmark` argument next.
 
 **"Push it to aidev3-web/SKILL-LIB, I'm <you>"** → `push_skill`:
 ```json
