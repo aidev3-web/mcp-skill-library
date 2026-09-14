@@ -7,7 +7,7 @@
   :root{
     --cream:#fbf3ea; --card:#fffaf3; --ink:#3a3a3a; --sub:#8a7f74;
     --orange:#e8734a; --orange-soft:#f2ceba; --dash:#e3ceb8;
-    --green:#5a8f6b; --red:#c85c4a; --blue:#5b7fa6; --chip:#f2e9dd;
+    --green:#5a8f6b; --green-soft:#e7f1e9; --red:#c85c4a; --blue:#5b7fa6; --chip:#f2e9dd;
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--cream);color:var(--ink);font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.5}
@@ -22,10 +22,9 @@
   .title-box h1{margin:0;font-size:1.6rem;letter-spacing:.02em;color:#333}
   .title-box .sub{color:var(--sub);margin-top:6px;font-size:.98rem}
 
-  .row5{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:26px}
-  @media (max-width:1000px){.row5{grid-template-columns:repeat(2,1fr)}}
-  @media (max-width:560px){.row5{grid-template-columns:1fr}}
-  .panel{background:var(--card);border:2px solid var(--orange-soft);border-radius:14px;padding:16px 14px;text-align:center;display:flex;flex-direction:column}
+  .row3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:26px}
+  @media (max-width:900px){.row3{grid-template-columns:1fr}}
+  .panel{background:var(--card);border:2px solid var(--orange-soft);border-radius:14px;padding:16px 14px;text-align:center;display:flex;flex-direction:column;min-width:0}
   .panel h3{font-size:.84rem;margin:2px 0 10px;color:var(--orange);letter-spacing:.01em}
   .panel ul{list-style:none;margin:0;padding:0;text-align:left;font-size:.78rem;flex:1}
   .panel li{padding:6px 0;border-top:1px dashed var(--dash)}
@@ -33,30 +32,44 @@
   .panel code{background:var(--chip);border-radius:4px;padding:0 4px;font-size:.9em}
 
   .section{background:var(--card);border:2px solid var(--orange);border-radius:16px;padding:20px 20px 22px;margin-bottom:24px}
-  .section > h2{text-align:center;margin:0 0 18px;font-size:1.02rem;letter-spacing:.02em;color:#333}
+  .section > h2{text-align:center;margin:0 0 6px;font-size:1.02rem;letter-spacing:.02em;color:#333}
+  .section > .section-sub{text-align:center;margin:0 0 18px;font-size:.82rem;color:var(--sub)}
 
   .steps4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
   @media (max-width:900px){.steps4{grid-template-columns:repeat(2,1fr)}}
   @media (max-width:560px){.steps4{grid-template-columns:1fr}}
-  .step-card{border:2px dashed var(--dash);border-radius:12px;padding:14px}
+  .step-card{border:2px dashed var(--dash);border-radius:12px;padding:14px;min-width:0}
   .step-card .tag{display:inline-block;background:var(--orange);color:#fff;font-size:.7rem;font-weight:700;padding:3px 10px;border-radius:999px;margin-bottom:8px}
   .step-card h4{margin:0 0 10px;font-size:.9rem}
   .step-card ol{margin:0;padding-left:18px;font-size:.8rem}
   .step-card li{margin:5px 0}
   .step-card .pill{display:inline-block;background:var(--chip);border-radius:6px;padding:1px 6px;font-family:ui-monospace,monospace;font-size:.78em}
 
-  .flow2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-  @media (max-width:800px){.flow2{grid-template-columns:1fr}}
-  .flow-card{border:2px dashed var(--dash);border-radius:12px;padding:14px}
-  .flow-card h4{margin:0 0 10px;font-size:.92rem;color:var(--orange)}
-  .flow-card ol{margin:0;padding-left:18px;font-size:.8rem}
-  .flow-card li{margin:6px 0}
-  .flow-card code{background:var(--chip);border-radius:4px;padding:0 4px;font-size:.9em}
+  .convo-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media (max-width:800px){.convo-grid{grid-template-columns:1fr}}
+  .convo{border:2px dashed var(--dash);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px;min-width:0}
+  .convo h4{margin:0;font-size:.9rem;color:var(--orange)}
+  .convo h4 .num{display:inline-block;background:var(--orange);color:#fff;border-radius:999px;width:20px;height:20px;line-height:20px;text-align:center;font-size:.72rem;margin-right:8px}
+  .turn{border-radius:10px;padding:8px 12px;font-size:.79rem;line-height:1.5}
+  .turn .role{display:block;font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px}
+  .turn.you{background:var(--chip);align-self:flex-start;max-width:94%}
+  .turn.you .role{color:var(--ink)}
+  .turn.agent{background:var(--card);border:1px solid var(--orange-soft)}
+  .turn.agent .role{color:var(--orange)}
+  .turn.result{background:var(--green-soft);border:1px solid var(--green);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.74rem;white-space:pre-wrap;word-break:break-word}
+  .turn.result .role{color:var(--green)}
+  .turn code{background:rgba(0,0,0,.06);border-radius:4px;padding:0 4px;font-size:.92em}
+
+  .toollist{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  @media (max-width:900px){.toollist{grid-template-columns:repeat(2,1fr)}}
+  @media (max-width:560px){.toollist{grid-template-columns:1fr}}
+  .tool-chip{border:1px solid var(--orange-soft);border-radius:10px;padding:10px 12px;font-size:.76rem;min-width:0}
+  .tool-chip code{display:block;font-family:ui-monospace,monospace;color:var(--orange);font-size:.86em;margin-bottom:4px;word-break:break-word}
 
   .tips4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
   @media (max-width:900px){.tips4{grid-template-columns:repeat(2,1fr)}}
   @media (max-width:560px){.tips4{grid-template-columns:1fr}}
-  .tip-card{border:2px solid var(--orange-soft);border-radius:12px;padding:12px}
+  .tip-card{border:2px solid var(--orange-soft);border-radius:12px;padding:12px;min-width:0}
   .tip-card h4{margin:0 0 8px;font-size:.84rem}
   .badrow,.okrow{display:flex;gap:6px;align-items:flex-start;font-size:.76rem;margin:6px 0}
   .badrow .x{color:var(--red);flex:none;font-weight:700}
@@ -68,7 +81,13 @@
   .closing .big{font-weight:700;font-size:1.05rem;color:#333}
   .closing .quote{color:var(--sub)}
 
-  .init-prompt{margin-top:16px;border:2px dashed var(--dash);border-radius:12px;background:var(--cream)}
+  .prompt-howto{margin-top:16px;border:1px solid var(--orange-soft);border-radius:12px;background:var(--chip);padding:12px 16px}
+  .prompt-howto .howto-title{font-size:.78rem;font-weight:700;color:var(--orange);text-transform:uppercase;letter-spacing:.03em;margin-bottom:8px}
+  .prompt-howto ol{margin:0;padding-left:18px;font-size:.8rem}
+  .prompt-howto li{margin:4px 0}
+  .prompt-howto .pill{display:inline-block;background:var(--card);border:1px solid var(--orange-soft);border-radius:6px;padding:1px 6px;font-family:ui-monospace,monospace;font-size:.85em}
+
+  .init-prompt{margin-top:12px;border:2px dashed var(--dash);border-radius:12px;background:var(--cream)}
   .init-prompt summary{cursor:pointer;padding:12px 16px;font-weight:700;color:var(--orange);font-size:.86rem;list-style:none}
   .init-prompt summary::-webkit-details-marker{display:none}
   .init-prompt summary:before{content:"▸ ";display:inline-block}
@@ -100,14 +119,14 @@
   </div>
 
   <div class="title-box">
-    <h1><span data-vi>HƯỚNG DẪN TOÀN DIỆN VỀ MCP-SKILL-LIB</span><span data-en>THE COMPLETE GUIDE TO MCP-SKILL-LIB</span></h1>
+    <h1><span data-vi>CÁCH DÙNG MCP-SKILL-LIB</span><span data-en>HOW TO USE MCP-SKILL-LIB</span></h1>
     <div class="sub">
-      <span data-vi>Tổng quan, cài đặt, 8 tool, workflow &amp; sự cố thường gặp — chia sẻ Agent Skills qua mọi agent MCP</span>
-      <span data-en>Overview, setup, 8 tools, workflows &amp; common issues — sharing Agent Skills across every MCP agent</span>
+      <span data-vi>Bạn không gọi tool trực tiếp — chỉ cần nói với agent bằng lời thường, nó tự chọn đúng tool. Dưới đây là các đoạn hội thoại thật, gõ y vậy là dùng được.</span>
+      <span data-en>You never call a tool directly — just tell your agent in plain language, it picks the right one. Below are real conversations you can type as-is.</span>
     </div>
   </div>
 
-  <div class="row5">
+  <div class="row3">
     <div class="panel">
       <h3><span data-vi>TỔNG QUAN</span><span data-en>OVERVIEW</span></h3>
       <ul>
@@ -118,42 +137,27 @@
       </ul>
     </div>
     <div class="panel">
-      <h3><span data-vi>HƯỚNG DẪN INIT</span><span data-en>INIT GUIDE</span></h3>
+      <h3><span data-vi>TRƯỚC KHI DÙNG</span><span data-en>BEFORE YOU START</span></h3>
       <ul>
-        <li><span data-vi>node ≥ 18 + gh auth login</span><span data-en>node ≥ 18 + gh auth login</span></li>
-        <li><span data-vi>git clone + npm install</span><span data-en>git clone + npm install</span></li>
-        <li><span data-vi>claude mcp add --scope project</span><span data-en>claude mcp add --scope project</span></li>
-        <li><span data-vi>Prompt init — nhờ agent tự cài</span><span data-en>Init prompt — let an agent install it for you</span></li>
+        <li><span data-vi>Cài xong theo mục "CÁC BƯỚC INIT" bên dưới</span><span data-en>Finished the "INIT GUIDE STEPS" below</span></li>
+        <li><span data-vi>Đã restart agent 1 lần sau khi đăng ký</span><span data-en>Restarted the agent once after registering</span></li>
+        <li><span data-vi>Repo private cần được thêm làm collaborator</span><span data-en>Private repos require being added as a collaborator</span></li>
       </ul>
     </div>
     <div class="panel">
-      <h3><span data-vi>DANH SÁCH TOOL</span><span data-en>TOOLS</span></h3>
+      <h3><span data-vi>4 TÌNH HUỐNG THƯỜNG GẶP</span><span data-en>4 COMMON SITUATIONS</span></h3>
       <ul>
-        <li>search_remote_skills / search_all_sources</li>
-        <li>pull_skill / detect_agents</li>
-        <li>deploy_skill / remove_skill</li>
-        <li>validate_skill / push_skill</li>
-      </ul>
-    </div>
-    <div class="panel">
-      <h3><span data-vi>WORKFLOW</span><span data-en>WORKFLOWS</span></h3>
-      <ul>
-        <li><span data-vi>A: Dùng skill có sẵn — search → pull → deploy</span><span data-en>A: Use an existing skill — search → pull → deploy</span></li>
-        <li><span data-vi>B: Đóng góp skill mới — validate → push → PR</span><span data-en>B: Contribute a new skill — validate → push → PR</span></li>
-      </ul>
-    </div>
-    <div class="panel">
-      <h3><span data-vi>LƯU Ý &amp; SỰ CỐ</span><span data-en>NOTES &amp; ISSUES</span></h3>
-      <ul>
-        <li><span data-vi>Repo private cần là collaborator</span><span data-en>A private repo requires being a collaborator</span></li>
-        <li><span data-vi>CONNECTION_CLOSED → sai path / thiếu npm install</span><span data-en>CONNECTION_CLOSED → wrong path / missing npm install</span></li>
-        <li><span data-vi>Token cũ (GITHUB_TOKEN) gây xung đột</span><span data-en>A stale GITHUB_TOKEN causes conflicts</span></li>
+        <li><span data-vi>Cài 1 skill có sẵn — xem mục 1 bên dưới</span><span data-en>Install an existing skill — see case 1 below</span></li>
+        <li><span data-vi>Chưa biết skill ở repo nào — mục 2</span><span data-en>Don't know which repo — case 2</span></li>
+        <li><span data-vi>Gỡ skill không dùng nữa — mục 3</span><span data-en>Remove a skill you don't use — case 3</span></li>
+        <li><span data-vi>Đóng góp skill bạn viết — mục 4</span><span data-en>Contribute a skill you wrote — case 4</span></li>
       </ul>
     </div>
   </div>
 
   <div class="section">
-    <h2><span data-vi>CÁC BƯỚC HƯỚNG DẪN INIT</span><span data-en>INIT GUIDE STEPS</span></h2>
+    <h2><span data-vi>CÁC BƯỚC CÀI ĐẶT (LÀM 1 LẦN)</span><span data-en>INIT GUIDE STEPS (ONE-TIME)</span></h2>
+    <div class="section-sub"><span data-vi>Làm đủ 4 bước này trước, mọi ví dụ hội thoại bên dưới mới chạy được</span><span data-en>Finish these 4 steps first — every conversation example below depends on it</span></div>
     <div class="steps4">
       <div class="step-card">
         <span class="tag" data-vi>BƯỚC 1</span><span class="tag" data-en>STEP 1</span>
@@ -161,6 +165,7 @@
         <ol>
           <li><span data-vi>Kiểm tra <span class="pill">node --version</span> ≥ 18</span><span data-en>Check <span class="pill">node --version</span> ≥ 18</span></li>
           <li><span data-vi><span class="pill">gh auth login</span>, kiểm tra <span class="pill">gh auth status</span></span><span data-en><span class="pill">gh auth login</span>, check <span class="pill">gh auth status</span></span></li>
+          <li><span data-vi>Nhiều tài khoản cùng login? Dùng <span class="pill">gh auth switch</span> để chọn đúng tài khoản đang là collaborator trước khi làm tiếp</span><span data-en>Multiple accounts logged in? Run <span class="pill">gh auth switch</span> to pick the one that's actually a collaborator before continuing</span></li>
           <li><span data-vi>Kiểm tra đăng ký cũ: <span class="pill">claude mcp list</span></span><span data-en>Check for an existing registration: <span class="pill">claude mcp list</span></span></li>
         </ol>
       </div>
@@ -177,7 +182,8 @@
         <span class="tag" data-vi>BƯỚC 3</span><span class="tag" data-en>STEP 3</span>
         <h4><span data-vi>Đăng ký với agent</span><span data-en>Register with the agent</span></h4>
         <ol>
-          <li><span class="pill">claude mcp add --scope project</span></li>
+          <li><span data-vi>Agent phải <b>hỏi bạn trước</b>: dùng <span class="pill">--scope user</span> (cho riêng bạn, mọi project) hay <span class="pill">--scope project</span> (chỉ 1 thư mục project) — không tự chọn giúp bạn</span><span data-en>The agent must <b>ask you first</b>: <span class="pill">--scope user</span> (just for you, every project) or <span class="pill">--scope project</span> (one project folder only) — it should not pick for you</span></li>
+          <li><span class="pill">claude mcp add --scope &lt;user|project&gt; mcp-skill-lib -- node &lt;path&gt;</span></li>
           <li><span data-vi>Tuỳ chọn: thêm <span class="pill">SKILL_LIBRARY_PATH</span> trong env</span><span data-en>Optional: add <span class="pill">SKILL_LIBRARY_PATH</span> in the env block</span></li>
         </ol>
       </div>
@@ -186,13 +192,24 @@
         <h4><span data-vi>Restart &amp; xác nhận</span><span data-en>Restart &amp; verify</span></h4>
         <ol>
           <li><span data-vi>Restart agent để nạp cấu hình mới</span><span data-en>Restart the agent to pick up the new config</span></li>
-          <li><span data-vi>Gọi <span class="pill">detect_agents</span></span><span data-en>Call <span class="pill">detect_agents</span></span></li>
+          <li><span data-vi>Gọi thử <span class="pill">detect_agents</span> để chắc chắn server chạy</span><span data-en>Call <span class="pill">detect_agents</span> once to confirm it's running</span></li>
         </ol>
       </div>
     </div>
 
+    <div class="prompt-howto">
+      <div class="howto-title"><span data-vi>Không muốn tự gõ 4 bước trên? Làm theo cách này</span><span data-en>Don't want to type the 4 steps yourself? Do this instead</span></div>
+      <ol>
+        <li><span data-vi>Bấm mở khối <span class="pill">Xem / copy prompt init</span> ngay bên dưới</span><span data-en>Click to expand the <span class="pill">View / copy the init prompt</span> block right below</span></li>
+        <li><span data-vi>Bấm nút <span class="pill">Copy</span> ở góc phải khối đó — toàn bộ đoạn prompt được chép vào clipboard</span><span data-en>Click the <span class="pill">Copy</span> button in its top-right corner — the whole prompt is copied to your clipboard</span></li>
+        <li><span data-vi>Dán (Ctrl+V) nguyên văn đoạn đó vào khung chat của agent bạn đang dùng (Claude Code, Claude Desktop, Codex, OpenCode...) rồi gửi đi</span><span data-en>Paste (Ctrl+V) it as-is into your agent's chat box (Claude Code, Claude Desktop, Codex, OpenCode...) and send it</span></li>
+        <li><span data-vi>Agent sẽ tự đọc prompt và hỏi ngược lại bạn từng bước (kiểm tra Node, đăng nhập <span class="pill">gh</span>, chọn repo, xác nhận restart...) — bạn chỉ cần trả lời</span><span data-en>The agent reads the prompt itself and asks you back at each step (checking Node, logging into <span class="pill">gh</span>, picking a repo, confirming the restart...) — you just answer</span></li>
+        <li><span data-vi>Xong khi agent báo đã gọi <span class="pill">detect_agents</span> thành công — nghĩa là server đã chạy, có thể dùng luôn các ví dụ ở mục "CÁCH DÙNG THẬT" bên dưới</span><span data-en>Done once the agent reports it successfully called <span class="pill">detect_agents</span> — the server is running, and you can jump straight to the "REAL USAGE" examples below</span></li>
+      </ol>
+    </div>
+
     <details class="init-prompt">
-      <summary><span data-vi>Xem / copy prompt init</span><span data-en>View / copy the init prompt</span></summary>
+      <summary><span data-vi>Xem / copy prompt init (nhờ agent tự cài giúp bạn)</span><span data-en>View / copy the init prompt (let the agent install it for you)</span></summary>
       <div class="init-prompt-body">
         <pre><button class="copy-btn" onclick="copyInitPrompt()"><span data-vi>Copy</span><span data-en>Copy</span></button><code id="init-prompt-text">Install and register the "mcp-skill-lib" MCP server
 (@aidev3-web/mcp-skill-library) for yourself on this machine. Do this:
@@ -218,7 +235,11 @@
    `gh auth status` (if not logged in, tell me to run `gh auth login` and
    wait for me to confirm it succeeded before continuing). This server
    reads no token of any kind — it shells out to `gh` for every GitHub
-   call, using whichever account `gh` is logged in as.
+   call, using whichever account `gh` is logged in as. If `gh auth status`
+   shows more than one logged-in account, ask me which one is actually a
+   collaborator on the target repo(s), and run `gh auth switch` to make
+   that one active before continuing — don't assume the currently
+   "active" account is the right one.
 
 4. Ask me which GitHub repo(s) I want to browse/pull skills from. If any
    of them are private, remind me I need to already be a collaborator on
@@ -236,15 +257,21 @@
      (workspace-only), or use the UI: **...** at the top of the Agent panel →
      **MCP Servers** → **Manage MCP Servers** → **View raw config**.
 
-6. Register the server for yourself using the exact command/config
-   snippet for your agent type, from this repo's README.md
-   ("Register with your agent" section). Prefer the recommended
+6. Before registering, ask me which scope I want: `--scope user` (registers
+   it for me, available in every project on this machine) or
+   `--scope project` (only in the current project folder). Do not default
+   to either one silently — wait for my answer, then use the exact
+   command/config snippet for your agent type from this repo's README.md
+   ("Register with your agent" section) with the scope I picked. Prefer
+   the recommended
    local-run install: `git clone` this repo (or reuse an existing
    checkout if I already have one), `npm install`, then point your
    config at that checkout's `index.js` via `node`. Only fall back to
    the `npx` alternative if I explicitly say I'd rather not manage a
    local checkout. No `env` block or token of any kind is needed in
-   either case.
+   either case. If the checkout's path contains spaces (common on
+   Windows, e.g. under a folder with non-English characters), quote the
+   whole path in the command.
 
 7. If SKILL_LIBRARY_PATH should be anything other than the default
    (~/.skill-library), ask me for the path and add it in an `env`
@@ -261,53 +288,60 @@
   </div>
 
   <div class="section">
-    <h2><span data-vi>DANH SÁCH TOOL (8 TOOL)</span><span data-en>TOOLS (8 TOTAL)</span></h2>
-    <div class="flow2">
-      <div class="flow-card">
-        <h4><span data-vi>Tìm &amp; kéo về</span><span data-en>Find &amp; pull</span></h4>
-        <ol>
-          <li><code>search_remote_skills</code> — <span data-vi>tìm trong 1 repo đã biết</span><span data-en>search one known repo</span></li>
-          <li><code>search_all_sources</code> — <span data-vi>tìm trên mọi repo trong sources.json</span><span data-en>search every repo in sources.json</span></li>
-          <li><code>pull_skill</code> — <span data-vi>kéo skill về thư viện local</span><span data-en>fetch a skill into the local library</span></li>
-          <li><code>detect_agents</code> — <span data-vi>dò agent nào có mặt trên máy</span><span data-en>detect which agents are present</span></li>
-        </ol>
+    <h2><span data-vi>CÁCH DÙNG THẬT — GÕ Y VẬY LÀ ĐƯỢC</span><span data-en>REAL USAGE — TYPE THIS AS-IS</span></h2>
+    <div class="section-sub"><span data-vi>4 tình huống hay gặp nhất, kèm câu bạn gõ, việc agent tự làm, và kết quả trả về</span><span data-en>The 4 most common situations, with what you type, what the agent does, and what comes back</span></div>
+    <div class="convo-grid">
+
+      <div class="convo">
+        <h4><span class="num">1</span><span data-vi>Cài một skill đã biết tên/repo</span><span data-en>Install a skill you already know the repo for</span></h4>
+        <div class="turn you"><span class="role" data-vi>Bạn gõ</span><span class="role" data-en>You type</span><span data-vi>"Tìm skill về code review trong anthropics/skills, rồi cài cho tôi trên Claude Code"</span><span data-en>"Find a code-review skill in anthropics/skills, then install it for me on Claude Code"</span></div>
+        <div class="turn agent"><span class="role" data-vi>Agent tự làm</span><span class="role" data-en>Agent does</span><span data-vi><code>search_remote_skills</code> → <code>pull_skill</code> → <code>detect_agents</code> → hỏi bạn scope (global/project) → <code>deploy_skill</code></span><span data-en><code>search_remote_skills</code> → <code>pull_skill</code> → <code>detect_agents</code> → asks you for scope (global/project) → <code>deploy_skill</code></span></div>
+        <div class="turn result"><span class="role" data-vi>Kết quả</span><span class="role" data-en>Result</span>status: "deployed"
+path: ~/.claude/skills/code-review</div>
+        <div class="turn you"><span class="role" data-vi>Bạn cần làm thêm</span><span class="role" data-en>One more thing</span><span data-vi>Restart agent — skill chỉ được nạp lúc khởi động</span><span data-en>Restart the agent — skills are only scanned at startup</span></div>
       </div>
-      <div class="flow-card">
-        <h4><span data-vi>Cài đặt, kiểm tra &amp; đóng góp</span><span data-en>Deploy, validate &amp; contribute</span></h4>
-        <ol>
-          <li><code>deploy_skill</code> — <span data-vi>symlink skill vào từng agent</span><span data-en>symlink the skill into each agent</span></li>
-          <li><code>remove_skill</code> — <span data-vi>gỡ symlink &amp; dọn thư viện</span><span data-en>undo the deploy &amp; clean up the library</span></li>
-          <li><code>validate_skill</code> — <span data-vi>kiểm tra 4 quy tắc lint, không cần mạng</span><span data-en>check the 4 lint rules, no network needed</span></li>
-          <li><code>push_skill</code> — <span data-vi>đẩy skill lên GitHub qua feature branch</span><span data-en>push the skill to GitHub via a feature branch</span></li>
-        </ol>
+
+      <div class="convo">
+        <h4><span class="num">2</span><span data-vi>Chưa biết skill nằm ở repo nào</span><span data-en>Don't know which repo the skill is in</span></h4>
+        <div class="turn you"><span class="role" data-vi>Bạn gõ</span><span class="role" data-en>You type</span><span data-vi>"Tìm giúp tôi thứ gì đó về brand guidelines" (không nói repo nào)</span><span data-en>"Find me anything about brand guidelines" (no repo named)</span></div>
+        <div class="turn agent"><span class="role" data-vi>Agent tự làm</span><span class="role" data-en>Agent does</span><span data-vi>Gọi <code>search_all_sources</code> — quét mọi repo trong <code>sources.json</code> cùng lúc</span><span data-en>Calls <code>search_all_sources</code> — scans every repo in <code>sources.json</code> at once</span></div>
+        <div class="turn result"><span class="role" data-vi>Kết quả</span><span class="role" data-en>Result</span>brand-guidelines (aidev3-web/SKILL-LIB)
+totalMatched: 1</div>
+        <div class="turn you"><span class="role" data-vi>Sau đó</span><span class="role" data-en>Then</span><span data-vi>Nói "cài cái đó đi" — quy trình giống tình huống 1</span><span data-en>Say "install that one" — same flow as case 1</span></div>
       </div>
+
+      <div class="convo">
+        <h4><span class="num">3</span><span data-vi>Gỡ một skill không dùng nữa</span><span data-en>Remove a skill you don't use anymore</span></h4>
+        <div class="turn you"><span class="role" data-vi>Bạn gõ</span><span class="role" data-en>You type</span><span data-vi>"Gỡ skill code-review đi, tôi không dùng nữa"</span><span data-en>"Remove code-review, I don't use it anymore"</span></div>
+        <div class="turn agent"><span class="role" data-vi>Agent tự làm</span><span class="role" data-en>Agent does</span><span data-vi>Hỏi lại: có xóa luôn khỏi thư viện local không (việc này không hoàn tác được) → <code>remove_skill</code></span><span data-en>Confirms first: also delete from the local library too (permanent) → <code>remove_skill</code></span></div>
+        <div class="turn result"><span class="role" data-vi>Kết quả</span><span class="role" data-en>Result</span>undeployed: claude-code/global
+libraryRemoved: true</div>
+        <div class="turn you"><span class="role" data-vi>Lưu ý</span><span class="role" data-en>Note</span><span data-vi>Nếu skill còn được dùng ở agent khác, thư viện local được giữ lại và báo lý do (<code>librarySkipReason</code>)</span><span data-en>If another agent still uses it, the local copy is kept and the reason is reported (<code>librarySkipReason</code>)</span></div>
+      </div>
+
+      <div class="convo">
+        <h4><span class="num">4</span><span data-vi>Đóng góp skill bạn tự viết</span><span data-en>Contribute a skill you wrote yourself</span></h4>
+        <div class="turn you"><span class="role" data-vi>Bạn gõ</span><span class="role" data-en>You type</span><span data-vi>"Đẩy skill my-new-skill của tôi lên aidev3-web/SKILL-LIB, tên GitHub tôi là ..."</span><span data-en>"Push my my-new-skill to aidev3-web/SKILL-LIB, my GitHub username is ..."</span></div>
+        <div class="turn agent"><span class="role" data-vi>Agent tự làm</span><span class="role" data-en>Agent does</span><span data-vi><code>validate_skill</code> (chặn nếu sai định dạng) → <code>push_skill</code> lên nhánh riêng, không đụng main</span><span data-en><code>validate_skill</code> (blocks if malformed) → <code>push_skill</code> to its own branch, never main</span></div>
+        <div class="turn result"><span class="role" data-vi>Kết quả</span><span class="role" data-en>Result</span>status: "pushed"
+commitUrl: github.com/.../commit/a1b2c3d</div>
+        <div class="turn you"><span class="role" data-vi>Bước cuối</span><span class="role" data-en>Last step</span><span data-vi>Nói "mở PR giúp tôi" — agent chạy <code>gh pr create</code>, người khác review rồi mới merge</span><span data-en>Say "open a PR for me" — the agent runs <code>gh pr create</code>, someone else reviews and merges</span></div>
+      </div>
+
     </div>
   </div>
 
   <div class="section">
-    <h2><span data-vi>2 WORKFLOW CHÍNH</span><span data-en>2 MAIN WORKFLOWS</span></h2>
-    <div class="flow2">
-      <div class="flow-card">
-        <h4><span data-vi>Workflow A — Dùng skill có sẵn</span><span data-en>Workflow A — Use an existing skill</span></h4>
-        <ol>
-          <li><span data-vi>Tìm skill: <code>search_remote_skills</code> / <code>search_all_sources</code></span><span data-en>Find the skill: <code>search_remote_skills</code> / <code>search_all_sources</code></span></li>
-          <li><span data-vi>Pull về local: <code>pull_skill</code></span><span data-en>Pull it locally: <code>pull_skill</code></span></li>
-          <li><span data-vi>Xác định agent: <code>detect_agents</code></span><span data-en>Detect the agent: <code>detect_agents</code></span></li>
-          <li><span data-vi>Deploy: <code>deploy_skill</code> (chọn scope)</span><span data-en>Deploy: <code>deploy_skill</code> (choose scope)</span></li>
-          <li><span data-vi>Restart agent để nạp skill mới</span><span data-en>Restart the agent to load the new skill</span></li>
-          <li><span data-vi>Gỡ khi không cần: <code>remove_skill</code></span><span data-en>Remove when no longer needed: <code>remove_skill</code></span></li>
-        </ol>
-      </div>
-      <div class="flow-card">
-        <h4><span data-vi>Workflow B — Đóng góp skill mới</span><span data-en>Workflow B — Contribute a new skill</span></h4>
-        <ol>
-          <li><span data-vi>Validate: <code>validate_skill</code></span><span data-en>Validate: <code>validate_skill</code></span></li>
-          <li><span data-vi>Push lên feature branch: <code>push_skill</code></span><span data-en>Push to a feature branch: <code>push_skill</code></span></li>
-          <li><span data-vi>Pull lại xác nhận round-trip đúng</span><span data-en>Pull it back to confirm the round-trip</span></li>
-          <li><span data-vi>Mở PR: <code>gh pr create</code></span><span data-en>Open a PR: <code>gh pr create</code></span></li>
-          <li><span data-vi>Review theo CODEOWNERS rồi merge (thủ công)</span><span data-en>Review per CODEOWNERS, then merge (by hand)</span></li>
-        </ol>
-      </div>
+    <h2><span data-vi>8 TOOL ĐỨNG SAU (bạn không cần gọi tay)</span><span data-en>THE 8 TOOLS BEHIND IT (you never call these by hand)</span></h2>
+    <div class="toollist">
+      <div class="tool-chip"><code>search_remote_skills</code><span data-vi>Tìm trong 1 repo đã biết</span><span data-en>Search one known repo</span></div>
+      <div class="tool-chip"><code>search_all_sources</code><span data-vi>Tìm trên mọi repo trong sources.json</span><span data-en>Search every repo in sources.json</span></div>
+      <div class="tool-chip"><code>pull_skill</code><span data-vi>Kéo skill về thư viện local</span><span data-en>Fetch a skill into the local library</span></div>
+      <div class="tool-chip"><code>detect_agents</code><span data-vi>Dò agent nào có mặt trên máy</span><span data-en>Detect which agents are present</span></div>
+      <div class="tool-chip"><code>deploy_skill</code><span data-vi>Symlink skill vào từng agent</span><span data-en>Symlink the skill into each agent</span></div>
+      <div class="tool-chip"><code>remove_skill</code><span data-vi>Gỡ symlink &amp; dọn thư viện</span><span data-en>Undo the deploy &amp; clean up the library</span></div>
+      <div class="tool-chip"><code>validate_skill</code><span data-vi>Kiểm tra định dạng, không cần mạng</span><span data-en>Check the format, no network needed</span></div>
+      <div class="tool-chip"><code>push_skill</code><span data-vi>Đẩy skill lên GitHub qua feature branch</span><span data-en>Push the skill to GitHub via a feature branch</span></div>
     </div>
   </div>
 
@@ -341,8 +375,8 @@
     <p class="big"><span data-vi>mcp-skill-lib không đơn thuần là chỗ lưu file,</span><span data-en>mcp-skill-lib isn't just a place to store files —</span></p>
     <p class="quote"><span data-vi>nó là "cầu nối tri thức" giữa mọi agent MCP trên máy bạn.</span><span data-en>it's the "knowledge bridge" between every MCP agent on your machine.</span></p>
     <p class="quote" style="margin-top:14px">
-      <span data-vi>Việc bạn cần làm là cài đúng một lần, sau đó mọi agent — Claude Code, Codex, OpenCode, Copilot —<br>đều đọc chung một thư viện skill, không phải cấu hình lại từng nơi.</span>
-      <span data-en>Set it up correctly once, and every agent — Claude Code, Codex, OpenCode, Copilot —<br>reads from the same skill library, instead of being configured separately each time.</span>
+      <span data-vi>Việc bạn cần làm là cài đúng một lần, sau đó chỉ cần nói chuyện bình thường với agent —<br>nó tự tìm, tự cài, tự gỡ skill giúp bạn, không cần nhớ tên tool nào cả.</span>
+      <span data-en>Set it up correctly once, then just talk to your agent in plain language —<br>it finds, installs and removes skills for you, no tool name to memorize.</span>
     </p>
   </div>
 

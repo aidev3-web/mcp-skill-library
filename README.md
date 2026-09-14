@@ -74,6 +74,8 @@ config — auth comes entirely from the `gh auth login` session on the machine.
 ```bash
 claude mcp add --scope user mcp-skill-lib -- node /absolute/path/to/mcp-skill-library/index.js
 ```
+On Windows, quote the path if it contains spaces (common under a
+localized user folder, e.g. `"C:\Users\you\OneDrive\Máy tính\...\index.js"`).
 
 **Claude Desktop** — edit `claude_desktop_config.json` via the app's
 **Settings → Developer → Edit Config** button (safest — it opens the exact
