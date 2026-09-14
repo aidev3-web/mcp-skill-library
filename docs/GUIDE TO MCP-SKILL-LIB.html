@@ -294,10 +294,10 @@
 
       <div class="convo">
         <h4><span class="num">1</span><span data-vi>Cài một skill đã biết tên/repo</span><span data-en>Install a skill you already know the repo for</span></h4>
-        <div class="turn you"><span class="role" data-vi>Bạn gõ</span><span class="role" data-en>You type</span><span data-vi>"Tìm skill về code review trong anthropics/skills, rồi cài cho tôi trên Claude Code"</span><span data-en>"Find a code-review skill in anthropics/skills, then install it for me on Claude Code"</span></div>
+        <div class="turn you"><span class="role" data-vi>Bạn gõ</span><span class="role" data-en>You type</span><span data-vi>"Tìm skill về brand guidelines trong anthropics/skills, rồi cài cho tôi trên Claude Code"</span><span data-en>"Find a brand-guidelines skill in anthropics/skills, then install it for me on Claude Code"</span></div>
         <div class="turn agent"><span class="role" data-vi>Agent tự làm</span><span class="role" data-en>Agent does</span><span data-vi><code>search_remote_skills</code> → <code>pull_skill</code> → <code>detect_agents</code> → hỏi bạn scope (global/project) → <code>deploy_skill</code></span><span data-en><code>search_remote_skills</code> → <code>pull_skill</code> → <code>detect_agents</code> → asks you for scope (global/project) → <code>deploy_skill</code></span></div>
         <div class="turn result"><span class="role" data-vi>Kết quả</span><span class="role" data-en>Result</span>status: "deployed"
-path: ~/.claude/skills/code-review</div>
+path: ~/.claude/skills/brand-guidelines</div>
         <div class="turn you"><span class="role" data-vi>Bạn cần làm thêm</span><span class="role" data-en>One more thing</span><span data-vi>Restart agent — skill chỉ được nạp lúc khởi động</span><span data-en>Restart the agent — skills are only scanned at startup</span></div>
       </div>
 
@@ -312,7 +312,7 @@ totalMatched: 1</div>
 
       <div class="convo">
         <h4><span class="num">3</span><span data-vi>Gỡ một skill không dùng nữa</span><span data-en>Remove a skill you don't use anymore</span></h4>
-        <div class="turn you"><span class="role" data-vi>Bạn gõ</span><span class="role" data-en>You type</span><span data-vi>"Gỡ skill code-review đi, tôi không dùng nữa"</span><span data-en>"Remove code-review, I don't use it anymore"</span></div>
+        <div class="turn you"><span class="role" data-vi>Bạn gõ</span><span class="role" data-en>You type</span><span data-vi>"Gỡ skill brand-guidelines đi, tôi không dùng nữa"</span><span data-en>"Remove brand-guidelines, I don't use it anymore"</span></div>
         <div class="turn agent"><span class="role" data-vi>Agent tự làm</span><span class="role" data-en>Agent does</span><span data-vi>Hỏi lại: có xóa luôn khỏi thư viện local không (việc này không hoàn tác được) → <code>remove_skill</code></span><span data-en>Confirms first: also delete from the local library too (permanent) → <code>remove_skill</code></span></div>
         <div class="turn result"><span class="role" data-vi>Kết quả</span><span class="role" data-en>Result</span>undeployed: claude-code/global
 libraryRemoved: true</div>
@@ -322,7 +322,7 @@ libraryRemoved: true</div>
       <div class="convo">
         <h4><span class="num">4</span><span data-vi>Đóng góp skill bạn tự viết</span><span data-en>Contribute a skill you wrote yourself</span></h4>
         <div class="turn you"><span class="role" data-vi>Bạn gõ</span><span class="role" data-en>You type</span><span data-vi>"Đẩy skill my-new-skill của tôi lên aidev3-web/SKILL-LIB, tên GitHub tôi là ..."</span><span data-en>"Push my my-new-skill to aidev3-web/SKILL-LIB, my GitHub username is ..."</span></div>
-        <div class="turn agent"><span class="role" data-vi>Agent tự làm</span><span class="role" data-en>Agent does</span><span data-vi><code>validate_skill</code> (chặn nếu sai định dạng) → <code>push_skill</code> lên nhánh riêng, không đụng main</span><span data-en><code>validate_skill</code> (blocks if malformed) → <code>push_skill</code> to its own branch, never main</span></div>
+        <div class="turn agent"><span class="role" data-vi>Agent tự làm</span><span class="role" data-en>Agent does</span><span data-vi><code>validate_skill</code> (chặn nếu sai định dạng) → <code>benchmark_skill</code> (tự chấm điểm chất lượng, chặn nếu &lt;70/100) → <code>push_skill</code> lên nhánh riêng, không đụng main</span><span data-en><code>validate_skill</code> (blocks if malformed) → <code>benchmark_skill</code> (self-scores quality, blocks if &lt;70/100) → <code>push_skill</code> to its own branch, never main</span></div>
         <div class="turn result"><span class="role" data-vi>Kết quả</span><span class="role" data-en>Result</span>status: "pushed"
 commitUrl: github.com/.../commit/a1b2c3d</div>
         <div class="turn you"><span class="role" data-vi>Bước cuối</span><span class="role" data-en>Last step</span><span data-vi>Nói "mở PR giúp tôi" — agent chạy <code>gh pr create</code>, người khác review rồi mới merge</span><span data-en>Say "open a PR for me" — the agent runs <code>gh pr create</code>, someone else reviews and merges</span></div>
@@ -332,7 +332,7 @@ commitUrl: github.com/.../commit/a1b2c3d</div>
   </div>
 
   <div class="section">
-    <h2><span data-vi>8 TOOL ĐỨNG SAU (bạn không cần gọi tay)</span><span data-en>THE 8 TOOLS BEHIND IT (you never call these by hand)</span></h2>
+    <h2><span data-vi>9 TOOL ĐỨNG SAU (bạn không cần gọi tay)</span><span data-en>THE 9 TOOLS BEHIND IT (you never call these by hand)</span></h2>
     <div class="toollist">
       <div class="tool-chip"><code>search_remote_skills</code><span data-vi>Tìm trong 1 repo đã biết</span><span data-en>Search one known repo</span></div>
       <div class="tool-chip"><code>search_all_sources</code><span data-vi>Tìm trên mọi repo trong sources.json</span><span data-en>Search every repo in sources.json</span></div>
@@ -341,6 +341,7 @@ commitUrl: github.com/.../commit/a1b2c3d</div>
       <div class="tool-chip"><code>deploy_skill</code><span data-vi>Symlink skill vào từng agent</span><span data-en>Symlink the skill into each agent</span></div>
       <div class="tool-chip"><code>remove_skill</code><span data-vi>Gỡ symlink &amp; dọn thư viện</span><span data-en>Undo the deploy &amp; clean up the library</span></div>
       <div class="tool-chip"><code>validate_skill</code><span data-vi>Kiểm tra định dạng, không cần mạng</span><span data-en>Check the format, no network needed</span></div>
+      <div class="tool-chip"><code>benchmark_skill</code><span data-vi>Chấm chất lượng theo 6 lớp, chặn push nếu &lt;70/100</span><span data-en>Scores quality on 6 layers, blocks push below 70/100</span></div>
       <div class="tool-chip"><code>push_skill</code><span data-vi>Đẩy skill lên GitHub qua feature branch</span><span data-en>Push the skill to GitHub via a feature branch</span></div>
     </div>
   </div>
