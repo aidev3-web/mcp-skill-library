@@ -522,18 +522,21 @@ const BENCHMARK_RESULT_SHAPE = {
   layer0Passed: z.boolean(),
   trigger: z.object({
     positivePrompt: z.string(),
+    positiveRawOutput: z.string().describe('The actual raw text the positive-prompt session produced/returned — not a paraphrase, so a reader can verify it themselves'),
     positiveFired: z.boolean(),
     negativePrompt: z.string(),
+    negativeRawOutput: z.string().describe('The actual raw text the negative-prompt session produced/returned'),
     negativeFired: z.boolean(),
     sessionEvidence: z.string(),
   }),
   outcome: z.object({
-    withSkillResult: z.string(),
-    withoutSkillResult: z.string(),
+    withSkillRawOutput: z.string().describe('The actual raw output of the with-skill session, not a summary'),
+    withoutSkillRawOutput: z.string().describe('The actual raw output of the without-skill session, not a summary'),
     skillHelped: z.boolean(),
   }),
   stability: z.object({
     runs: z.number().min(3),
+    runOutputs: z.array(z.string()).min(3).describe('The actual raw output of each of the runs, in order — not a summary'),
     consistent: z.boolean(),
     notes: z.string(),
   }),

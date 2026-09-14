@@ -40,9 +40,9 @@ function textOf(res) {
 // for tests where the benchmark gate itself isn't what's under test.
 const PASSING_BENCHMARK = {
   layer0Passed: true,
-  trigger: { positivePrompt: 'p', positiveFired: true, negativePrompt: 'n', negativeFired: false, sessionEvidence: 'e' },
-  outcome: { withSkillResult: 'w', withoutSkillResult: 'wo', skillHelped: true },
-  stability: { runs: 3, consistent: true, notes: 'n' },
+  trigger: { positivePrompt: 'p', positiveRawOutput: 'raw-p', positiveFired: true, negativePrompt: 'n', negativeRawOutput: 'raw-n', negativeFired: false, sessionEvidence: 'e' },
+  outcome: { withSkillRawOutput: 'raw-with', withoutSkillRawOutput: 'raw-without', skillHelped: true },
+  stability: { runs: 3, runOutputs: ['raw-run-1', 'raw-run-2', 'raw-run-3'], consistent: true, notes: 'n' },
   edgeCase: { score: 18, notes: 'n' },
   scope: { score: 18, notes: 'n' },
   score: 90,
@@ -336,7 +336,7 @@ test('push_skill rejects fewer than 3 stability runs at the schema level, before
         identity: 'test',
         benchmark: {
           ...PASSING_BENCHMARK,
-          stability: { runs: 1, consistent: true, notes: 'only ran once' },
+          stability: { runs: 1, runOutputs: ['raw-run-1'], consistent: true, notes: 'only ran once' },
         },
       },
     });
@@ -369,7 +369,7 @@ test('push_skill refuses when 3 stability runs were tested but were inconsistent
         identity: 'test',
         benchmark: {
           ...PASSING_BENCHMARK,
-          stability: { runs: 3, consistent: false, notes: 'the 3 runs picked different approaches' },
+          stability: { runs: 3, runOutputs: ['raw-run-1', 'raw-run-2', 'raw-run-3'], consistent: false, notes: 'the 3 runs picked different approaches' },
         },
       },
     });

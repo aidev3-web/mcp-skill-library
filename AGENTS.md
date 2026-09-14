@@ -113,7 +113,14 @@ is wrong — not the test.
   evidence from fresh sessions the calling agent actually spawned** — a
   self-rated 0-20 guess was tried first and rejected as unfalsifiable
   (see the commit that redesigned this). Don't relax the schema back to
-  a bare number for those 3 layers. Layers 4-5 stay read-and-judge; this
+  a bare number for those 3 layers. Each Layer 1-3 evidence field also
+  carries the literal raw session output (`positiveRawOutput`,
+  `negativeRawOutput`, `withSkillRawOutput`, `withoutSkillRawOutput`,
+  `runOutputs[]`) — not a paraphrase — which the report renders as a
+  terminal-styled block under its row, since this server has no
+  screenshot capability and raw text is the closest verifiable
+  substitute. Don't let a summary field replace those. Layers 4-5 stay
+  read-and-judge; this
   server genuinely cannot run a skill to test it, so don't try to make
   `benchmark_skill` self-contained for 1-3 either. `benchmark_skill`'s
   second call (with `results`) writes `<skillPath>.benchmark-report.html`
