@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>mcp-skill-lib Overview</title>
+<title>mcp-skill-lib Docs</title>
 <style>
   :root{
     --cream:#fbf3ea; --card:#fffaf3; --ink:#3a3a3a; --sub:#8a7f74;
@@ -10,44 +10,91 @@
     --green:#5a8f6b; --green-soft:#e7f1e9; --red:#c85c4a; --blue:#5b7fa6; --chip:#f2e9dd;
   }
   *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
   body{margin:0;background:var(--cream);color:var(--ink);font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.5}
-  .wrap{max-width:1180px;margin:0 auto;padding:36px 20px 60px}
 
-  .topbar{display:flex;justify-content:flex-end;margin-bottom:14px}
-  .lang-toggle{display:inline-flex;border:2px solid var(--orange-soft);border-radius:999px;overflow:hidden;background:var(--card)}
+  /* ---- top bar (docs header) ---- */
+  .topbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 20px;background:var(--card);border-bottom:2px solid var(--orange-soft)}
+  .brand{display:flex;align-items:center;gap:8px;font-weight:800;font-size:1rem;color:#333;white-space:nowrap}
+  .brand .dot{width:9px;height:9px;border-radius:50%;background:var(--orange)}
+  .topbar-sub{color:var(--sub);font-size:.78rem;display:none}
+  @media (min-width:760px){.topbar-sub{display:inline}}
+  .lang-toggle{display:inline-flex;border:2px solid var(--orange-soft);border-radius:999px;overflow:hidden;background:var(--card);flex:none}
   .lang-toggle button{border:none;background:transparent;color:var(--sub);font-weight:700;font-size:.8rem;padding:6px 16px;cursor:pointer;letter-spacing:.03em}
   .lang-toggle button.active{background:var(--orange);color:#fff}
 
-  .title-box{text-align:center;padding:22px 40px;border:2px solid var(--orange);border-radius:16px;background:var(--card);margin-bottom:28px}
-  .title-box h1{margin:0;font-size:1.6rem;letter-spacing:.02em;color:#333}
-  .title-box .sub{color:var(--sub);margin-top:6px;font-size:.98rem}
+  /* ---- 3-column docs shell ---- */
+  .shell{max-width:1360px;margin:0 auto;display:grid;grid-template-columns:230px minmax(0,1fr) 220px;gap:0}
+  @media (max-width:1180px){.shell{grid-template-columns:210px minmax(0,1fr)}.side-right{display:none}}
+  @media (max-width:820px){.shell{grid-template-columns:1fr}}
 
-  .row3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:26px}
+  .side-left{position:sticky;top:53px;align-self:start;height:calc(100vh - 53px);overflow-y:auto;padding:22px 14px;border-right:1px solid var(--dash)}
+  /* Must come AFTER the base rule above — same specificity, and the later
+     rule in source order wins at this breakpoint. Putting this before the
+     base rule (as an earlier draft did) let position:sticky silently win
+     back on narrow screens, floating the nav over the scrolling content. */
+  @media (max-width:820px){.side-left{position:static;height:auto;overflow:visible;border-right:none;border-bottom:2px solid var(--orange-soft);padding:14px 16px}}
+  .nav-group{margin-bottom:18px}
+  .nav-group-title{font-size:.68rem;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.05em;margin:0 0 6px 10px}
+  .nav-group ul{list-style:none;margin:0;padding:0}
+  .nav-group a{display:block;padding:6px 10px;border-radius:8px;font-size:.83rem;color:var(--ink);text-decoration:none;border-left:2px solid transparent}
+  .nav-group a:hover{background:var(--chip)}
+  .nav-group a.active{background:var(--orange-soft);color:#7a3d1f;font-weight:700;border-left:2px solid var(--orange)}
+
+  .doc-main{min-width:0;padding:28px 32px 70px}
+  @media (max-width:600px){.doc-main{padding:20px 16px 50px}}
+  .doc-main section{scroll-margin-top:68px;padding-top:6px}
+  .doc-main section + section{margin-top:34px;padding-top:34px;border-top:1px dashed var(--dash)}
+  .doc-main h2{margin:0 0 6px;font-size:1.28rem;letter-spacing:.01em;color:#2b2b2b}
+  .doc-main .lead{color:var(--sub);font-size:.92rem;margin:0 0 20px;max-width:70ch}
+  .doc-main h3{font-size:.98rem;color:#333;margin:26px 0 10px;scroll-margin-top:68px}
+  .breadcrumb{font-size:.72rem;color:var(--sub);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+
+  .side-right{position:sticky;top:53px;align-self:start;height:calc(100vh - 53px);overflow-y:auto;padding:22px 16px}
+  .toc-label{font-size:.68rem;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.05em;margin:0 0 8px}
+  .toc-group{display:none}
+  .toc-group.active{display:block}
+  .toc-group ul{list-style:none;margin:0;padding:0;border-left:2px solid var(--dash)}
+  .toc-group li{margin:0}
+  .toc-group a{display:block;padding:5px 0 5px 12px;font-size:.78rem;color:var(--sub);text-decoration:none;border-left:2px solid transparent;margin-left:-2px}
+  .toc-group a:hover{color:var(--orange)}
+  .toc-group a.active{color:var(--orange);font-weight:700;border-left:2px solid var(--orange)}
+  .toc-empty{font-size:.78rem;color:var(--sub);font-style:italic}
+
+  /* ---- key concepts (Supabase-style term: definition list) ---- */
+  .concepts{list-style:none;margin:0;padding:0}
+  .concepts li{padding:10px 0;border-top:1px dashed var(--dash);font-size:.86rem}
+  .concepts li:first-child{border-top:none}
+  .concepts b{color:var(--orange)}
+  .concepts code{background:var(--chip);border-radius:4px;padding:0 4px;font-size:.9em}
+
+  .row3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
   @media (max-width:900px){.row3{grid-template-columns:1fr}}
-  .panel{background:var(--card);border:2px solid var(--orange-soft);border-radius:14px;padding:16px 14px;text-align:center;display:flex;flex-direction:column;min-width:0}
-  .panel h3{font-size:.84rem;margin:2px 0 10px;color:var(--orange);letter-spacing:.01em}
-  .panel ul{list-style:none;margin:0;padding:0;text-align:left;font-size:.78rem;flex:1}
+  .panel{background:var(--card);border:2px solid var(--orange-soft);border-radius:14px;padding:16px 14px;min-width:0}
+  .panel h4{font-size:.84rem;margin:0 0 10px;color:var(--orange);letter-spacing:.01em}
+  .panel ul{list-style:none;margin:0;padding:0;font-size:.8rem}
   .panel li{padding:6px 0;border-top:1px dashed var(--dash)}
   .panel li:first-child{border-top:none}
   .panel code{background:var(--chip);border-radius:4px;padding:0 4px;font-size:.9em}
 
-  .section{background:var(--card);border:2px solid var(--orange);border-radius:16px;padding:20px 20px 22px;margin-bottom:24px}
-  .section > h2{text-align:center;margin:0 0 6px;font-size:1.02rem;letter-spacing:.02em;color:#333}
-  .section > .section-sub{text-align:center;margin:0 0 18px;font-size:.82rem;color:var(--sub)}
+  .stepper{display:grid;grid-template-columns:repeat(4,1fr);gap:30px;align-items:stretch}
+  @media (max-width:900px){.stepper{grid-template-columns:repeat(2,1fr);gap:34px 22px}}
+  @media (max-width:560px){.stepper{grid-template-columns:1fr;gap:22px}}
+  .step-node{position:relative;display:flex;flex-direction:column;border:1px solid var(--orange-soft);border-radius:14px;padding:16px 16px 15px;min-width:0;background:var(--card);box-shadow:0 2px 10px rgba(180,110,60,.08);scroll-margin-top:68px}
+  .step-node:not(:last-child)::after{content:"";position:absolute;top:19px;right:-24px;width:24px;height:14px;background-repeat:no-repeat;background-position:center;background-size:24px 14px;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 14'><path d='M1 7h18M14 1l6 6-6 6' fill='none' stroke='%238a7f74' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>")}
+  @media (max-width:900px){
+    .stepper > .step-node:nth-child(2)::after,
+    .stepper > .step-node:nth-child(4)::after{display:none}
+  }
+  @media (max-width:560px){.step-node::after{display:none}}
+  .step-head{display:flex;align-items:center;gap:10px;margin-bottom:9px}
+  .step-circle{flex:none;width:28px;height:28px;border-radius:50%;background:linear-gradient(155deg,var(--orange),#d4602f);color:#fff;font-weight:800;font-size:.82rem;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(216,100,50,.4)}
+  .step-node h4{margin:0;font-size:.88rem;line-height:1.3;color:#2b2b2b}
+  .step-desc{margin:5px 0 0;font-size:.79rem;line-height:1.6;color:var(--ink)}
+  .step-desc .pill{display:inline-block;background:var(--chip);border:1px solid var(--dash);border-radius:6px;padding:1px 7px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.9em;white-space:normal;word-break:break-word}
 
-  .steps4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
-  @media (max-width:900px){.steps4{grid-template-columns:repeat(2,1fr)}}
-  @media (max-width:560px){.steps4{grid-template-columns:1fr}}
-  .step-card{border:2px dashed var(--dash);border-radius:12px;padding:14px;min-width:0}
-  .step-card .tag{display:inline-block;background:var(--orange);color:#fff;font-size:.7rem;font-weight:700;padding:3px 10px;border-radius:999px;margin-bottom:8px}
-  .step-card h4{margin:0 0 10px;font-size:.9rem}
-  .step-card ol{margin:0;padding-left:18px;font-size:.8rem}
-  .step-card li{margin:5px 0}
-  .step-card .pill{display:inline-block;background:var(--chip);border-radius:6px;padding:1px 6px;font-family:ui-monospace,monospace;font-size:.78em}
-
-  .convo-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-  @media (max-width:800px){.convo-grid{grid-template-columns:1fr}}
-  .convo{border:2px dashed var(--dash);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px;min-width:0}
+  .convo-grid{display:grid;grid-template-columns:1fr;gap:16px}
+  .convo{border:2px dashed var(--dash);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px;min-width:0;scroll-margin-top:68px}
   .convo h4{margin:0;font-size:.9rem;color:var(--orange)}
   .convo h4 .num{display:inline-block;background:var(--orange);color:#fff;border-radius:999px;width:20px;height:20px;line-height:20px;text-align:center;font-size:.72rem;margin-right:8px}
   .turn{border-radius:10px;padding:8px 12px;font-size:.79rem;line-height:1.5}
@@ -60,23 +107,40 @@
   .turn.result .role{color:var(--green)}
   .turn code{background:rgba(0,0,0,.06);border-radius:4px;padding:0 4px;font-size:.92em}
 
-  .toollist{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
-  @media (max-width:900px){.toollist{grid-template-columns:repeat(2,1fr)}}
-  @media (max-width:560px){.toollist{grid-template-columns:1fr}}
+  .toollist{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  @media (max-width:640px){.toollist{grid-template-columns:1fr}}
   .tool-chip{border:1px solid var(--orange-soft);border-radius:10px;padding:10px 12px;font-size:.76rem;min-width:0}
   .tool-chip code{display:block;font-family:ui-monospace,monospace;color:var(--orange);font-size:.86em;margin-bottom:4px;word-break:break-word}
 
-  .tips4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
-  @media (max-width:900px){.tips4{grid-template-columns:repeat(2,1fr)}}
-  @media (max-width:560px){.tips4{grid-template-columns:1fr}}
-  .tip-card{border:2px solid var(--orange-soft);border-radius:12px;padding:12px;min-width:0}
+  /* ---- workflow diagram ---- */
+  .flow-block{margin-bottom:26px}
+  .flow-title{font-size:.86rem;font-weight:700;color:#333;margin:0 0 10px}
+  .flow-title .flow-badge{display:inline-block;background:var(--orange);color:#fff;font-size:.64rem;font-weight:700;padding:2px 8px;border-radius:999px;margin-right:8px;text-transform:uppercase;letter-spacing:.03em}
+  .flow-svg-wrap{overflow-x:auto;margin:2px 0 4px;background:var(--card);border:1px solid var(--dash);border-radius:12px;padding:6px 10px}
+  .flow-svg-wrap svg{display:block;min-width:600px;width:100%;height:auto}
+  .flow-node rect{fill:#fff;stroke:var(--orange-soft);stroke-width:2}
+  .flow-node text{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12.5px;fill:var(--orange);font-weight:700}
+  .flow-node.optional rect{fill:transparent;stroke:var(--dash);stroke-dasharray:5 4}
+  .flow-node.optional text{fill:var(--sub)}
+  .flow-cap{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:10px;fill:var(--sub)}
+  .flow-edge{stroke:var(--sub);stroke-width:1.6;fill:none;opacity:.75}
+  .flow-edge.dashed{stroke-dasharray:4 4}
+  .flow-note{font-size:.78rem;color:var(--sub);margin-top:8px}
+
+  .layer-row{border:1px solid var(--orange-soft);border-radius:10px;padding:12px 14px;margin-bottom:10px;scroll-margin-top:68px}
+  .layer-row code{font-family:ui-monospace,monospace;color:var(--orange);font-weight:700}
+  .layer-row p{margin:6px 0 0;font-size:.82rem}
+
+  .tips4{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+  @media (max-width:640px){.tips4{grid-template-columns:1fr}}
+  .tip-card{border:2px solid var(--orange-soft);border-radius:12px;padding:12px;min-width:0;scroll-margin-top:68px}
   .tip-card h4{margin:0 0 8px;font-size:.84rem}
   .badrow,.okrow{display:flex;gap:6px;align-items:flex-start;font-size:.76rem;margin:6px 0}
   .badrow .x{color:var(--red);flex:none;font-weight:700}
   .okrow .v{color:var(--green);flex:none;font-weight:700}
   .tip-card code{background:var(--chip);border-radius:4px;padding:0 4px;font-size:.9em}
 
-  .closing{text-align:center;padding:26px 40px;border:2px solid var(--orange);border-radius:16px;background:var(--card)}
+  .closing{text-align:center;padding:26px 24px;border:2px solid var(--orange);border-radius:16px;background:var(--card)}
   .closing p{margin:6px 0;font-size:.95rem}
   .closing .big{font-weight:700;font-size:1.05rem;color:#333}
   .closing .quote{color:var(--sub)}
@@ -87,7 +151,7 @@
   .prompt-howto li{margin:4px 0}
   .prompt-howto .pill{display:inline-block;background:var(--card);border:1px solid var(--orange-soft);border-radius:6px;padding:1px 6px;font-family:ui-monospace,monospace;font-size:.85em}
 
-  .init-prompt{margin-top:12px;border:2px dashed var(--dash);border-radius:12px;background:var(--cream)}
+  .init-prompt{margin-top:12px;border:2px dashed var(--dash);border-radius:12px;background:var(--cream);scroll-margin-top:68px}
   .init-prompt summary{cursor:pointer;padding:12px 16px;font-weight:700;color:var(--orange);font-size:.86rem;list-style:none}
   .init-prompt summary::-webkit-details-marker{display:none}
   .init-prompt summary:before{content:"▸ ";display:inline-block}
@@ -109,109 +173,125 @@
 </style>
 </head>
 <body>
-<div class="wrap">
 
   <div class="topbar">
+    <div class="brand"><span class="dot"></span>mcp-skill-lib <span class="topbar-sub">&nbsp;·&nbsp;<span data-vi>tài liệu</span><span data-en>docs</span></span></div>
     <div class="lang-toggle">
       <button id="btn-vi" onclick="setLang('vi')">VI</button>
       <button id="btn-en" class="active" onclick="setLang('en')">EN</button>
     </div>
   </div>
 
-  <div class="title-box">
-    <h1><span data-vi>CÁCH DÙNG MCP-SKILL-LIB</span><span data-en>HOW TO USE MCP-SKILL-LIB</span></h1>
-    <div class="sub">
-      <span data-vi>Bạn không gọi tool trực tiếp — chỉ cần nói với agent bằng lời thường, nó tự chọn đúng tool. Dưới đây là các đoạn hội thoại thật, gõ y vậy là dùng được.</span>
-      <span data-en>You never call a tool directly — just tell your agent in plain language, it picks the right one. Below are real conversations you can type as-is.</span>
-    </div>
-  </div>
+  <div class="shell">
 
-  <div class="row3">
-    <div class="panel">
-      <h3><span data-vi>TỔNG QUAN</span><span data-en>OVERVIEW</span></h3>
-      <ul>
-        <li><span data-vi>Không lưu token — dùng <code>gh</code> CLI đã login</span><span data-en>No stored token — uses the logged-in <code>gh</code> CLI</span></li>
-        <li><span data-vi>Kho nguồn mặc định <b>SKILL-LIB</b> (private)</span><span data-en>Default source repo <b>SKILL-LIB</b> (private)</span></li>
-        <li><span data-vi>Thư viện local <code>~/.skill-library</code></span><span data-en>Local library at <code>~/.skill-library</code></span></li>
-        <li><span data-vi>Mỗi skill là 1 thư mục <code>SKILL.md</code></span><span data-en>Each skill is a <code>SKILL.md</code> folder</span></li>
-      </ul>
-    </div>
-    <div class="panel">
-      <h3><span data-vi>TRƯỚC KHI DÙNG</span><span data-en>BEFORE YOU START</span></h3>
-      <ul>
-        <li><span data-vi>Cài xong theo mục "CÁC BƯỚC INIT" bên dưới</span><span data-en>Finished the "INIT GUIDE STEPS" below</span></li>
-        <li><span data-vi>Đã restart agent 1 lần sau khi đăng ký</span><span data-en>Restarted the agent once after registering</span></li>
-        <li><span data-vi>Repo private cần được thêm làm collaborator</span><span data-en>Private repos require being added as a collaborator</span></li>
-      </ul>
-    </div>
-    <div class="panel">
-      <h3><span data-vi>4 TÌNH HUỐNG THƯỜNG GẶP</span><span data-en>4 COMMON SITUATIONS</span></h3>
-      <ul>
-        <li><span data-vi>Cài 1 skill có sẵn — xem mục 1 bên dưới</span><span data-en>Install an existing skill — see case 1 below</span></li>
-        <li><span data-vi>Chưa biết skill ở repo nào — mục 2</span><span data-en>Don't know which repo — case 2</span></li>
-        <li><span data-vi>Gỡ skill không dùng nữa — mục 3</span><span data-en>Remove a skill you don't use — case 3</span></li>
-        <li><span data-vi>Đóng góp skill bạn viết — mục 4</span><span data-en>Contribute a skill you wrote — case 4</span></li>
-      </ul>
-    </div>
-  </div>
+    <aside class="side-left">
+      <nav>
+        <div class="nav-group">
+          <div class="nav-group-title"><span data-vi>Bắt đầu</span><span data-en>Getting started</span></div>
+          <ul>
+            <li><a href="#overview" data-nav-link="overview"><span data-vi>Tổng quan</span><span data-en>Overview</span></a></li>
+            <li><a href="#quick-start" data-nav-link="quick-start"><span data-vi>Cài đặt nhanh</span><span data-en>Quick start</span></a></li>
+          </ul>
+        </div>
+        <div class="nav-group">
+          <div class="nav-group-title"><span data-vi>Tool</span><span data-en>Tools</span></div>
+          <ul>
+            <li><a href="#tools" data-nav-link="tools"><span data-vi>Danh sách tool</span><span data-en>List tools</span></a></li>
+            <li><a href="#workflow" data-nav-link="workflow"><span data-vi>Sơ đồ quy trình</span><span data-en>Workflow diagram</span></a></li>
+          </ul>
+        </div>
+        <div class="nav-group">
+          <div class="nav-group-title"><span data-vi>Tham khảo</span><span data-en>Reference</span></div>
+          <ul>
+            <li><a href="#usage" data-nav-link="usage"><span data-vi>Cách dùng thật</span><span data-en>Real usage</span></a></li>
+            <li><a href="#benchmark" data-nav-link="benchmark"><span data-vi>Chấm chất lượng skill</span><span data-en>Benchmarking a skill</span></a></li>
+            <li><a href="#troubleshooting" data-nav-link="troubleshooting"><span data-vi>Sự cố thường gặp</span><span data-en>Troubleshooting</span></a></li>
+          </ul>
+        </div>
+      </nav>
+    </aside>
 
-  <div class="section">
-    <h2><span data-vi>CÁC BƯỚC CÀI ĐẶT (LÀM 1 LẦN)</span><span data-en>INIT GUIDE STEPS (ONE-TIME)</span></h2>
-    <div class="section-sub"><span data-vi>Làm đủ 4 bước này trước, mọi ví dụ hội thoại bên dưới mới chạy được</span><span data-en>Finish these 4 steps first — every conversation example below depends on it</span></div>
-    <div class="steps4">
-      <div class="step-card">
-        <span class="tag" data-vi>BƯỚC 1</span><span class="tag" data-en>STEP 1</span>
-        <h4><span data-vi>Kiểm tra điều kiện</span><span data-en>Check prerequisites</span></h4>
-        <ol>
-          <li><span data-vi>Kiểm tra <span class="pill">node --version</span> ≥ 18</span><span data-en>Check <span class="pill">node --version</span> ≥ 18</span></li>
-          <li><span data-vi><span class="pill">gh auth login</span>, kiểm tra <span class="pill">gh auth status</span></span><span data-en><span class="pill">gh auth login</span>, check <span class="pill">gh auth status</span></span></li>
-          <li><span data-vi>Nhiều tài khoản cùng login? Dùng <span class="pill">gh auth switch</span> để chọn đúng tài khoản đang là collaborator trước khi làm tiếp</span><span data-en>Multiple accounts logged in? Run <span class="pill">gh auth switch</span> to pick the one that's actually a collaborator before continuing</span></li>
-          <li><span data-vi>Kiểm tra đăng ký cũ: <span class="pill">claude mcp list</span></span><span data-en>Check for an existing registration: <span class="pill">claude mcp list</span></span></li>
-        </ol>
-      </div>
-      <div class="step-card">
-        <span class="tag" data-vi>BƯỚC 2</span><span class="tag" data-en>STEP 2</span>
-        <h4><span data-vi>Cài đặt server</span><span data-en>Install the server</span></h4>
-        <ol>
-          <li><span data-vi><span class="pill">git clone</span> repo mcp-skill-library</span><span data-en><span class="pill">git clone</span> the mcp-skill-library repo</span></li>
-          <li><span class="pill">npm install</span></li>
-          <li><span data-vi>Checkout cũ thì <span class="pill">git pull</span></span><span data-en>Existing checkout? Run <span class="pill">git pull</span></span></li>
-        </ol>
-      </div>
-      <div class="step-card">
-        <span class="tag" data-vi>BƯỚC 3</span><span class="tag" data-en>STEP 3</span>
-        <h4><span data-vi>Đăng ký với agent</span><span data-en>Register with the agent</span></h4>
-        <ol>
-          <li><span data-vi>Agent phải <b>hỏi bạn trước</b>: dùng <span class="pill">--scope user</span> (cho riêng bạn, mọi project) hay <span class="pill">--scope project</span> (chỉ 1 thư mục project) — không tự chọn giúp bạn</span><span data-en>The agent must <b>ask you first</b>: <span class="pill">--scope user</span> (just for you, every project) or <span class="pill">--scope project</span> (one project folder only) — it should not pick for you</span></li>
-          <li><span class="pill">claude mcp add --scope &lt;user|project&gt; mcp-skill-lib -- node &lt;path&gt;</span></li>
-          <li><span data-vi>Tuỳ chọn: thêm <span class="pill">SKILL_LIBRARY_PATH</span> trong env</span><span data-en>Optional: add <span class="pill">SKILL_LIBRARY_PATH</span> in the env block</span></li>
-        </ol>
-      </div>
-      <div class="step-card">
-        <span class="tag" data-vi>BƯỚC 4</span><span class="tag" data-en>STEP 4</span>
-        <h4><span data-vi>Restart &amp; xác nhận</span><span data-en>Restart &amp; verify</span></h4>
-        <ol>
-          <li><span data-vi>Restart agent để nạp cấu hình mới</span><span data-en>Restart the agent to pick up the new config</span></li>
-          <li><span data-vi>Gọi thử <span class="pill">detect_agents</span> để chắc chắn server chạy</span><span data-en>Call <span class="pill">detect_agents</span> once to confirm it's running</span></li>
-        </ol>
-      </div>
-    </div>
+    <main class="doc-main">
 
-    <div class="prompt-howto">
-      <div class="howto-title"><span data-vi>Không muốn tự gõ 4 bước trên? Làm theo cách này</span><span data-en>Don't want to type the 4 steps yourself? Do this instead</span></div>
-      <ol>
-        <li><span data-vi>Bấm mở khối <span class="pill">Xem / copy prompt init</span> ngay bên dưới</span><span data-en>Click to expand the <span class="pill">View / copy the init prompt</span> block right below</span></li>
-        <li><span data-vi>Bấm nút <span class="pill">Copy</span> ở góc phải khối đó — toàn bộ đoạn prompt được chép vào clipboard</span><span data-en>Click the <span class="pill">Copy</span> button in its top-right corner — the whole prompt is copied to your clipboard</span></li>
-        <li><span data-vi>Dán (Ctrl+V) nguyên văn đoạn đó vào khung chat của agent bạn đang dùng (Claude Code, Claude Desktop, Codex, OpenCode...) rồi gửi đi</span><span data-en>Paste (Ctrl+V) it as-is into your agent's chat box (Claude Code, Claude Desktop, Codex, OpenCode...) and send it</span></li>
-        <li><span data-vi>Agent sẽ tự đọc prompt và hỏi ngược lại bạn từng bước (kiểm tra Node, đăng nhập <span class="pill">gh</span>, chọn repo, xác nhận restart...) — bạn chỉ cần trả lời</span><span data-en>The agent reads the prompt itself and asks you back at each step (checking Node, logging into <span class="pill">gh</span>, picking a repo, confirming the restart...) — you just answer</span></li>
-        <li><span data-vi>Xong khi agent báo đã gọi <span class="pill">detect_agents</span> thành công — nghĩa là server đã chạy, có thể dùng luôn các ví dụ ở mục "CÁCH DÙNG THẬT" bên dưới</span><span data-en>Done once the agent reports it successfully called <span class="pill">detect_agents</span> — the server is running, and you can jump straight to the "REAL USAGE" examples below</span></li>
-      </ol>
-    </div>
+      <section id="overview" data-nav="overview">
+        <div class="breadcrumb"><span data-vi>Bắt đầu</span><span data-en>Getting started</span></div>
+        <h2><span data-vi>Tổng quan</span><span data-en>Overview</span></h2>
+        <p class="lead"><span data-vi>mcp-skill-lib là cầu nối skill giữa mọi agent MCP trên máy bạn (Claude Code, Codex, OpenCode, Copilot...). Bạn không gọi tool trực tiếp — chỉ cần nói với agent bằng lời thường, nó tự chọn đúng tool trong số 9 tool phía dưới.</span><span data-en>mcp-skill-lib is the knowledge bridge between every MCP agent on your machine (Claude Code, Codex, OpenCode, Copilot...). You never call a tool directly — just tell your agent in plain language, and it picks the right one of the 9 tools below.</span></p>
 
-    <details class="init-prompt">
-      <summary><span data-vi>Xem / copy prompt init (nhờ agent tự cài giúp bạn)</span><span data-en>View / copy the init prompt (let the agent install it for you)</span></summary>
-      <div class="init-prompt-body">
-        <pre><button class="copy-btn" onclick="copyInitPrompt()"><span data-vi>Copy</span><span data-en>Copy</span></button><code id="init-prompt-text">Install and register the "mcp-skill-lib" MCP server
+        <h3 id="key-concepts"><span data-vi>Khái niệm chính</span><span data-en>Key concepts</span></h3>
+        <ul class="concepts">
+          <li><b>MCP server</b> — <span data-vi>phần mềm cầu nối giữa agent AI và một khả năng cụ thể bên ngoài mô hình; ở đây là quản lý skill.</span><span data-en>the bridge software between an AI agent and a specific outside capability — here, managing skills.</span></li>
+          <li><b><span data-vi>Skill</span><span data-en>Skill</span></b> — <span data-vi>một thư mục chứa <code>SKILL.md</code>, dạy agent cách làm đúng 1 việc cụ thể.</span><span data-en>a folder containing <code>SKILL.md</code> that teaches an agent how to do one specific job.</span></li>
+          <li><b><span data-vi>Thư viện skill</span><span data-en>Skill library</span></b> (<code>~/.skill-library</code>) — <span data-vi>nơi lưu skill cục bộ trên máy bạn, dùng chung cho mọi agent đã đăng ký.</span><span data-en>where skills are stored locally on your machine, shared by every registered agent.</span></li>
+          <li><b><code>gh</code> CLI</b> — <span data-vi>công cụ dòng lệnh GitHub dùng để xác thực. Không có token nào được lưu trong dự án này.</span><span data-en>the GitHub command-line tool used for authentication. No token of any kind is stored by this project.</span></li>
+          <li><b>Benchmark</b> — <span data-vi>quy trình 6 lớp kiểm chứng chất lượng 1 skill bằng bằng chứng thật, trước khi chia sẻ nó lên repo chung.</span><span data-en>the 6-layer process that verifies a skill's quality with real evidence before it's shared to the common repo.</span></li>
+        </ul>
+
+        <h3 id="before-you-start"><span data-vi>Trước khi dùng</span><span data-en>Before you start</span></h3>
+        <div class="row3">
+          <div class="panel">
+            <h4><span data-vi>1. Đã cài xong</span><span data-en>1. Installed</span></h4>
+            <ul><li><span data-vi>Làm đủ các bước ở mục <a href="#quick-start">Cài đặt nhanh</a></span><span data-en>Finished the <a href="#quick-start">Quick start</a> steps</span></li></ul>
+          </div>
+          <div class="panel">
+            <h4><span data-vi>2. Đã restart</span><span data-en>2. Restarted</span></h4>
+            <ul><li><span data-vi>Restart agent 1 lần sau khi đăng ký</span><span data-en>Restarted the agent once after registering</span></li></ul>
+          </div>
+          <div class="panel">
+            <h4><span data-vi>3. Có quyền collaborator</span><span data-en>3. Collaborator access</span></h4>
+            <ul><li><span data-vi>Repo private cần được thêm làm collaborator</span><span data-en>Private repos require being added as a collaborator</span></li></ul>
+          </div>
+        </div>
+
+        <h3 id="situations"><span data-vi>4 tình huống thường gặp</span><span data-en>4 common situations</span></h3>
+        <ul class="concepts">
+          <li><span data-vi>Cài 1 skill có sẵn — xem <a href="#case-1">case 1</a></span><span data-en>Install an existing skill — see <a href="#case-1">case 1</a></span></li>
+          <li><span data-vi>Chưa biết skill ở repo nào — <a href="#case-2">case 2</a></span><span data-en>Don't know which repo — <a href="#case-2">case 2</a></span></li>
+          <li><span data-vi>Gỡ skill không dùng nữa — <a href="#case-3">case 3</a></span><span data-en>Remove a skill you don't use — <a href="#case-3">case 3</a></span></li>
+          <li><span data-vi>Đóng góp skill bạn viết — <a href="#case-4">case 4</a></span><span data-en>Contribute a skill you wrote — <a href="#case-4">case 4</a></span></li>
+        </ul>
+      </section>
+
+      <section id="quick-start" data-nav="quick-start">
+        <div class="breadcrumb"><span data-vi>Bắt đầu</span><span data-en>Getting started</span></div>
+        <h2><span data-vi>Cài đặt nhanh (làm 1 lần)</span><span data-en>Quick start (one-time)</span></h2>
+        <p class="lead"><span data-vi>Làm đủ 4 bước này trước, mọi ví dụ hội thoại ở mục "Cách dùng thật" mới chạy được.</span><span data-en>Finish these 4 steps first — every conversation example in "Real usage" depends on it.</span></p>
+        <div class="stepper">
+          <div class="step-node" id="step-1">
+            <div class="step-head"><span class="step-circle">1</span><h4><span data-vi>Kiểm tra điều kiện</span><span data-en>Check prerequisites</span></h4></div>
+            <p class="step-desc"><span class="pill">node</span> ≥ 18 · <span class="pill">gh auth login</span> <span data-vi>(nhiều tài khoản thì <span class="pill">gh auth switch</span>)</span><span data-en>(multiple accounts? <span class="pill">gh auth switch</span>)</span></p>
+            <p class="step-desc"><span data-vi>Kiểm tra đăng ký cũ:</span><span data-en>Check for an existing one:</span> <span class="pill">claude mcp list</span></p>
+          </div>
+          <div class="step-node" id="step-2">
+            <div class="step-head"><span class="step-circle">2</span><h4><span data-vi>Cài đặt server</span><span data-en>Install the server</span></h4></div>
+            <p class="step-desc"><span class="pill">git clone</span> → <span class="pill">npm install</span> <span data-vi>(checkout cũ thì <span class="pill">git pull</span>)</span><span data-en>(existing checkout? <span class="pill">git pull</span>)</span></p>
+          </div>
+          <div class="step-node" id="step-3">
+            <div class="step-head"><span class="step-circle">3</span><h4><span data-vi>Đăng ký với agent</span><span data-en>Register with the agent</span></h4></div>
+            <p class="step-desc"><span data-vi>Agent phải <b>hỏi scope trước</b>: <span class="pill">user</span> (mọi project) hay <span class="pill">project</span> (1 thư mục)</span><span data-en>Agent must <b>ask your scope first</b>: <span class="pill">user</span> (every project) or <span class="pill">project</span> (one folder)</span></p>
+            <p class="step-desc"><span class="pill">claude mcp add --scope &lt;user|project&gt; mcp-skill-lib -- node &lt;path&gt;</span></p>
+          </div>
+          <div class="step-node" id="step-4">
+            <div class="step-head"><span class="step-circle">4</span><h4><span data-vi>Restart &amp; xác nhận</span><span data-en>Restart &amp; verify</span></h4></div>
+            <p class="step-desc"><span data-vi>Restart agent → gọi thử</span><span data-en>Restart the agent → call</span> <span class="pill">detect_agents</span></p>
+          </div>
+        </div>
+
+        <div class="prompt-howto">
+          <div class="howto-title"><span data-vi>Không muốn tự gõ 4 bước trên? Làm theo cách này</span><span data-en>Don't want to type the 4 steps yourself? Do this instead</span></div>
+          <ol>
+            <li><span data-vi>Bấm mở khối <span class="pill">Xem / copy prompt init</span> ngay bên dưới</span><span data-en>Click to expand the <span class="pill">View / copy the init prompt</span> block right below</span></li>
+            <li><span data-vi>Bấm nút <span class="pill">Copy</span> ở góc phải khối đó — toàn bộ đoạn prompt được chép vào clipboard</span><span data-en>Click the <span class="pill">Copy</span> button in its top-right corner — the whole prompt is copied to your clipboard</span></li>
+            <li><span data-vi>Dán (Ctrl+V) nguyên văn đoạn đó vào khung chat của agent bạn đang dùng (Claude Code, Claude Desktop, Codex, OpenCode...) rồi gửi đi</span><span data-en>Paste (Ctrl+V) it as-is into your agent's chat box (Claude Code, Claude Desktop, Codex, OpenCode...) and send it</span></li>
+            <li><span data-vi>Agent sẽ tự đọc prompt và hỏi ngược lại bạn từng bước (kiểm tra Node, đăng nhập <span class="pill">gh</span>, chọn repo, xác nhận restart...) — bạn chỉ cần trả lời</span><span data-en>The agent reads the prompt itself and asks you back at each step (checking Node, logging into <span class="pill">gh</span>, picking a repo, confirming the restart...) — you just answer</span></li>
+            <li><span data-vi>Xong khi agent báo đã gọi <span class="pill">detect_agents</span> thành công — nghĩa là server đã chạy, có thể dùng luôn các ví dụ ở mục "Cách dùng thật"</span><span data-en>Done once the agent reports it successfully called <span class="pill">detect_agents</span> — the server is running, and you can jump straight to the "Real usage" examples</span></li>
+          </ol>
+        </div>
+
+        <details class="init-prompt" id="init-prompt">
+          <summary><span data-vi>Xem / copy prompt init (nhờ agent tự cài giúp bạn)</span><span data-en>View / copy the init prompt (let the agent install it for you)</span></summary>
+          <div class="init-prompt-body">
+            <pre><button class="copy-btn" onclick="copyInitPrompt()"><span data-vi>Copy</span><span data-en>Copy</span></button><code id="init-prompt-text">Install and register the "mcp-skill-lib" MCP server
 (@aidev3-web/mcp-skill-library) for yourself on this machine. Do this:
 
 1. Check `node --version` is 18 or higher. If Node.js is missing or too
@@ -239,14 +319,13 @@
    shows more than one logged-in account, ask me which one is actually a
    collaborator on the target repo(s), and run `gh auth switch` to make
    that one active before continuing — don't assume the currently
-   "active" account is the right one.
+   "active" account is the right one. Do NOT ask me which repo(s) I want
+   to use right now — that's decided later, per search/pull call, not
+   during install. Just note for later: a private repo needs me to
+   already be a collaborator on it (`gh auth login` alone doesn't grant
+   that).
 
-4. Ask me which GitHub repo(s) I want to browse/pull skills from. If any
-   of them are private, remind me I need to already be a collaborator on
-   them (ask a repo admin if not) — `gh auth login` alone doesn't grant
-   access to a repo you're not added to.
-
-5. Identify which agent you are:
+4. Identify which agent you are:
    - Claude Code CLI → use `claude mcp add`.
    - Claude Desktop → edit claude_desktop_config.json.
    - OpenCode → edit opencode.json.
@@ -257,7 +336,7 @@
      (workspace-only), or use the UI: **...** at the top of the Agent panel →
      **MCP Servers** → **Manage MCP Servers** → **View raw config**.
 
-6. Before registering, ask me which scope I want: `--scope user` (registers
+5. Before registering, ask me which scope I want: `--scope user` (registers
    it for me, available in every project on this machine) or
    `--scope project` (only in the current project folder). Do not default
    to either one silently — wait for my answer, then use the exact
@@ -273,136 +352,331 @@
    Windows, e.g. under a folder with non-English characters), quote the
    whole path in the command.
 
-7. If SKILL_LIBRARY_PATH should be anything other than the default
-   (~/.skill-library), ask me for the path and add it in an `env`
-   block alongside the command.
+6. Always use the default SKILL_LIBRARY_PATH (~/.skill-library) — do not
+   ask me about this or add an `env` block for it.
 
-8. Tell me to restart you (or reload MCP servers) so the new config
+7. Tell me to restart you (or reload MCP servers) so the new config
    is picked up.
 
-9. Once restarted, call the `detect_agents` tool once and
+8. Once restarted, call the `detect_agents` tool once and
    report back which agent locations were found on this machine, to
    confirm the server is actually running.</code></pre>
-      </div>
-    </details>
-  </div>
+          </div>
+        </details>
+      </section>
 
-  <div class="section">
-    <h2><span data-vi>CÁCH DÙNG THẬT — GÕ Y VẬY LÀ ĐƯỢC</span><span data-en>REAL USAGE — TYPE THIS AS-IS</span></h2>
-    <div class="section-sub"><span data-vi>4 tình huống hay gặp nhất, kèm câu bạn gõ, việc agent tự làm, và kết quả trả về</span><span data-en>The 4 most common situations, with what you type, what the agent does, and what comes back</span></div>
-    <div class="convo-grid">
+      <section id="tools" data-nav="tools">
+        <div class="breadcrumb"><span data-vi>Tool</span><span data-en>Tools</span></div>
+        <h2><span data-vi>9 tool đứng sau (bạn không cần gọi tay)</span><span data-en>The 9 tools behind it (you never call these by hand)</span></h2>
+        <div class="toollist">
+          <div class="tool-chip"><code>search_remote_skills</code><span data-vi>Tìm trong 1 repo đã biết</span><span data-en>Search one known repo</span></div>
+          <div class="tool-chip"><code>search_all_sources</code><span data-vi>Tìm trên mọi repo trong sources.json</span><span data-en>Search every repo in sources.json</span></div>
+          <div class="tool-chip"><code>pull_skill</code><span data-vi>Kéo skill về thư viện local</span><span data-en>Fetch a skill into the local library</span></div>
+          <div class="tool-chip"><code>detect_agents</code><span data-vi>Dò agent nào có mặt trên máy</span><span data-en>Detect which agents are present</span></div>
+          <div class="tool-chip"><code>deploy_skill</code><span data-vi>Symlink skill vào từng agent</span><span data-en>Symlink the skill into each agent</span></div>
+          <div class="tool-chip"><code>remove_skill</code><span data-vi>Gỡ symlink &amp; dọn thư viện</span><span data-en>Undo the deploy &amp; clean up the library</span></div>
+          <div class="tool-chip"><code>validate_skill</code><span data-vi>Kiểm tra định dạng, không cần mạng</span><span data-en>Check the format, no network needed</span></div>
+          <div class="tool-chip"><code>benchmark_skill</code><span data-vi>Chấm 6 lớp chất lượng — Trigger/Kết quả/Ổn định cần bằng chứng thật từ session mới, không đoán điểm</span><span data-en>Scores 6 quality layers — Trigger/Outcome/Stability need real fresh-session evidence, no guessed scores</span></div>
+          <div class="tool-chip"><code>push_skill</code><span data-vi>Đẩy skill lên GitHub qua feature branch</span><span data-en>Push the skill to GitHub via a feature branch</span></div>
+        </div>
+      </section>
 
-      <div class="convo">
-        <h4><span class="num">1</span><span data-vi>Cài một skill đã biết tên/repo</span><span data-en>Install a skill you already know the repo for</span></h4>
-        <div class="turn you"><span class="role" data-vi>Bạn gõ</span><span class="role" data-en>You type</span><span data-vi>"Tìm skill về brand guidelines trong anthropics/skills, rồi cài cho tôi trên Claude Code"</span><span data-en>"Find a brand-guidelines skill in anthropics/skills, then install it for me on Claude Code"</span></div>
-        <div class="turn agent"><span class="role" data-vi>Agent tự làm</span><span class="role" data-en>Agent does</span><span data-vi><code>search_remote_skills</code> → <code>pull_skill</code> → <code>detect_agents</code> → hỏi bạn scope (global/project) → <code>deploy_skill</code></span><span data-en><code>search_remote_skills</code> → <code>pull_skill</code> → <code>detect_agents</code> → asks you for scope (global/project) → <code>deploy_skill</code></span></div>
-        <div class="turn result"><span class="role" data-vi>Kết quả</span><span class="role" data-en>Result</span>status: "deployed"
+      <section id="workflow" data-nav="workflow">
+        <div class="breadcrumb"><span data-vi>Tool</span><span data-en>Tools</span></div>
+        <h2><span data-vi>Sơ đồ quy trình các tool</span><span data-en>Workflow diagram</span></h2>
+        <p class="lead"><span data-vi>9 tool ở trên không đứng riêng lẻ — chúng nối vào nhau theo đúng 2 quy trình cố định dưới đây, tuỳ vào việc bạn đang <b>dùng</b> skill có sẵn hay <b>đóng góp</b> skill mới.</span><span data-en>The 9 tools above don't stand alone — they chain together into exactly the 2 fixed workflows below, depending on whether you're <b>using</b> an existing skill or <b>contributing</b> a new one.</span></p>
+
+        <div class="flow-block" id="flow-a">
+          <div class="flow-title"><span class="flow-badge" data-vi>Quy trình A</span><span class="flow-badge" data-en>Workflow A</span><span data-vi>Dùng skill có sẵn</span><span data-en>Use an existing skill</span></div>
+          <div class="flow-svg-wrap">
+            <svg viewBox="0 0 760 212" role="img" aria-labelledby="flowATitle flowADesc">
+              <title id="flowATitle"><span data-vi>Sơ đồ quy trình dùng skill có sẵn</span><span data-en>Workflow diagram for using an existing skill</span></title>
+              <desc id="flowADesc"><span data-vi>Tìm skill bằng 1 trong 2 tool, kéo về, dò agent, triển khai, rồi gỡ khi không dùng nữa</span><span data-en>Find a skill with either of 2 tools, pull it, detect agents, deploy it, then remove it when no longer needed</span></desc>
+              <defs>
+                <marker id="fa-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M0,0 L10,5 L0,10 z" style="fill:var(--sub)"/>
+                </marker>
+              </defs>
+
+              <!-- fork: two search tools merging into pull_skill -->
+              <path class="flow-edge" d="M170,35 C205,35 205,74 240,74" marker-end="url(#fa-arrow)"/>
+              <path class="flow-edge" d="M170,113 C205,113 205,74 240,74" marker-end="url(#fa-arrow)"/>
+              <path class="flow-edge" d="M380,74 L416,74" marker-end="url(#fa-arrow)"/>
+              <path class="flow-edge" d="M556,74 L592,74" marker-end="url(#fa-arrow)"/>
+              <path class="flow-edge dashed" d="M662,94 L662,146" marker-end="url(#fa-arrow)"/>
+
+              <g class="flow-node">
+                <rect x="10" y="15" width="160" height="40" rx="9"/>
+                <text x="90" y="34" text-anchor="middle">search_remote</text>
+                <text x="90" y="48" text-anchor="middle">_skills</text>
+              </g>
+              <text class="flow-cap" x="90" y="8" text-anchor="middle"><tspan data-vi>đã biết repo</tspan><tspan data-en>know the repo</tspan></text>
+
+              <g class="flow-node">
+                <rect x="10" y="93" width="160" height="40" rx="9"/>
+                <text x="90" y="112" text-anchor="middle">search_all</text>
+                <text x="90" y="126" text-anchor="middle">_sources</text>
+              </g>
+              <text class="flow-cap" x="90" y="150" text-anchor="middle"><tspan data-vi>chưa biết repo</tspan><tspan data-en>don't know the repo</tspan></text>
+
+              <g class="flow-node">
+                <rect x="240" y="54" width="140" height="40" rx="9"/>
+                <text x="310" y="78" text-anchor="middle">pull_skill</text>
+              </g>
+
+              <g class="flow-node">
+                <rect x="416" y="54" width="140" height="40" rx="9"/>
+                <text x="486" y="78" text-anchor="middle">detect_agents</text>
+              </g>
+
+              <g class="flow-node">
+                <rect x="592" y="54" width="140" height="40" rx="9"/>
+                <text x="662" y="78" text-anchor="middle">deploy_skill</text>
+              </g>
+
+              <g class="flow-node optional">
+                <rect x="592" y="146" width="140" height="40" rx="9"/>
+                <text x="662" y="170" text-anchor="middle">remove_skill</text>
+              </g>
+              <text class="flow-cap" x="662" y="203" text-anchor="middle"><tspan data-vi>khi không dùng nữa</tspan><tspan data-en>once no longer needed</tspan></text>
+            </svg>
+          </div>
+          <div class="flow-note"><span data-vi>2 tool tìm kiếm đầu tiên chọn 1 trong 2 tuỳ bạn đã biết repo hay chưa (xem <a href="#case-1">case 1</a> / <a href="#case-2">case 2</a>) — cả hai đều dẫn vào cùng 1 nhánh. <code>remove_skill</code> (viền đứt) chỉ chạy sau này, khi không dùng skill đó nữa.</span><span data-en>The first two search tools are either/or, depending on whether you already know the repo (see <a href="#case-1">case 1</a> / <a href="#case-2">case 2</a>) — both feed into the same branch. <code>remove_skill</code> (dashed) only runs later, once you stop using that skill.</span></div>
+        </div>
+
+        <div class="flow-block" id="flow-b">
+          <div class="flow-title"><span class="flow-badge" data-vi>Quy trình B</span><span class="flow-badge" data-en>Workflow B</span><span data-vi>Đóng góp skill bạn tự viết</span><span data-en>Contribute a skill you wrote</span></div>
+          <div class="flow-svg-wrap">
+            <svg viewBox="0 0 760 118" role="img" aria-labelledby="flowBTitle flowBDesc">
+              <title id="flowBTitle"><span data-vi>Sơ đồ quy trình đóng góp skill mới</span><span data-en>Workflow diagram for contributing a new skill</span></title>
+              <desc id="flowBDesc"><span data-vi>Kiểm tra định dạng, chấm chất lượng, đẩy lên nhánh riêng, rồi mở PR để người khác review</span><span data-en>Validate format, benchmark quality, push to its own branch, then open a PR for someone else to review</span></desc>
+              <defs>
+                <marker id="fb-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M0,0 L10,5 L0,10 z" style="fill:var(--sub)"/>
+                </marker>
+              </defs>
+
+              <path class="flow-edge" d="M170,35 L196,35" marker-end="url(#fb-arrow)"/>
+              <path class="flow-edge" d="M370,35 L396,35" marker-end="url(#fb-arrow)"/>
+              <path class="flow-edge" d="M570,35 L596,35" marker-end="url(#fb-arrow)"/>
+
+              <g class="flow-node">
+                <rect x="10" y="15" width="160" height="40" rx="9"/>
+                <text x="90" y="39" text-anchor="middle">validate_skill</text>
+              </g>
+              <text class="flow-cap" x="90" y="70" text-anchor="middle"><tspan data-vi>đúng định dạng?</tspan><tspan data-en>right format?</tspan></text>
+
+              <g class="flow-node">
+                <rect x="196" y="15" width="174" height="40" rx="9"/>
+                <text x="283" y="39" text-anchor="middle">benchmark_skill</text>
+              </g>
+              <text class="flow-cap" x="283" y="70" text-anchor="middle"><tspan data-vi>đủ chất lượng?</tspan><tspan data-en>good enough quality?</tspan></text>
+
+              <g class="flow-node">
+                <rect x="396" y="15" width="174" height="40" rx="9"/>
+                <text x="483" y="39" text-anchor="middle">push_skill</text>
+              </g>
+              <text class="flow-cap" x="483" y="70" text-anchor="middle"><tspan data-vi>nhánh riêng, không đụng main</tspan><tspan data-en>own branch, never main</tspan></text>
+
+              <g class="flow-node optional">
+                <rect x="596" y="15" width="154" height="40" rx="9"/>
+                <text x="673" y="39" text-anchor="middle">gh pr create</text>
+              </g>
+              <text class="flow-cap" x="673" y="70" text-anchor="middle"><tspan data-vi>người khác review</tspan><tspan data-en>someone else reviews</tspan></text>
+            </svg>
+          </div>
+          <div class="flow-note"><span data-vi>Mỗi bước là 1 cổng chặn cứng — sai định dạng thì dừng ở <code>validate_skill</code>, chưa đủ bằng chứng chất lượng thì dừng ở <code>benchmark_skill</code>, không tool nào tự bỏ qua bước trước để đi tiếp. Xem chi tiết ở mục <a href="#benchmark">Chấm chất lượng skill</a>.</span><span data-en>Each step is a hard gate — a bad format stops at <code>validate_skill</code>, insufficient quality evidence stops at <code>benchmark_skill</code>; no tool skips the one before it. See <a href="#benchmark">Benchmarking a skill</a> for detail.</span></div>
+        </div>
+      </section>
+
+      <section id="usage" data-nav="usage">
+        <div class="breadcrumb"><span data-vi>Tham khảo</span><span data-en>Reference</span></div>
+        <h2><span data-vi>Cách dùng thật — gõ y vậy là được</span><span data-en>Real usage — type this as-is</span></h2>
+        <p class="lead"><span data-vi>4 tình huống hay gặp nhất, kèm câu bạn gõ, việc agent tự làm, và kết quả trả về.</span><span data-en>The 4 most common situations, with what you type, what the agent does, and what comes back.</span></p>
+        <div class="convo-grid">
+
+          <div class="convo" id="case-1">
+            <h4><span class="num">1</span><span data-vi>Cài một skill đã biết tên/repo</span><span data-en>Install a skill you already know the repo for</span></h4>
+            <div class="turn you"><span class="role" data-vi>Bạn gõ</span><span class="role" data-en>You type</span><span data-vi>"Tìm skill về brand guidelines trong anthropics/skills, rồi cài cho tôi trên Claude Code"</span><span data-en>"Find a brand-guidelines skill in anthropics/skills, then install it for me on Claude Code"</span></div>
+            <div class="turn agent"><span class="role" data-vi>Agent tự làm</span><span class="role" data-en>Agent does</span><span data-vi><code>search_remote_skills</code> → <code>pull_skill</code> → <code>detect_agents</code> → hỏi bạn scope (global/project) → <code>deploy_skill</code></span><span data-en><code>search_remote_skills</code> → <code>pull_skill</code> → <code>detect_agents</code> → asks you for scope (global/project) → <code>deploy_skill</code></span></div>
+            <div class="turn result"><span class="role" data-vi>Kết quả</span><span class="role" data-en>Result</span>status: "deployed"
 path: ~/.claude/skills/brand-guidelines</div>
-        <div class="turn you"><span class="role" data-vi>Bạn cần làm thêm</span><span class="role" data-en>One more thing</span><span data-vi>Restart agent — skill chỉ được nạp lúc khởi động</span><span data-en>Restart the agent — skills are only scanned at startup</span></div>
-      </div>
+            <div class="turn you"><span class="role" data-vi>Bạn cần làm thêm</span><span class="role" data-en>One more thing</span><span data-vi>Restart agent — skill chỉ được nạp lúc khởi động</span><span data-en>Restart the agent — skills are only scanned at startup</span></div>
+          </div>
 
-      <div class="convo">
-        <h4><span class="num">2</span><span data-vi>Chưa biết skill nằm ở repo nào</span><span data-en>Don't know which repo the skill is in</span></h4>
-        <div class="turn you"><span class="role" data-vi>Bạn gõ</span><span class="role" data-en>You type</span><span data-vi>"Tìm giúp tôi thứ gì đó về brand guidelines" (không nói repo nào)</span><span data-en>"Find me anything about brand guidelines" (no repo named)</span></div>
-        <div class="turn agent"><span class="role" data-vi>Agent tự làm</span><span class="role" data-en>Agent does</span><span data-vi>Gọi <code>search_all_sources</code> — quét mọi repo trong <code>sources.json</code> cùng lúc</span><span data-en>Calls <code>search_all_sources</code> — scans every repo in <code>sources.json</code> at once</span></div>
-        <div class="turn result"><span class="role" data-vi>Kết quả</span><span class="role" data-en>Result</span>brand-guidelines (aidev3-web/SKILL-LIB)
+          <div class="convo" id="case-2">
+            <h4><span class="num">2</span><span data-vi>Chưa biết skill nằm ở repo nào</span><span data-en>Don't know which repo the skill is in</span></h4>
+            <div class="turn you"><span class="role" data-vi>Bạn gõ</span><span class="role" data-en>You type</span><span data-vi>"Tìm giúp tôi thứ gì đó về brand guidelines" (không nói repo nào)</span><span data-en>"Find me anything about brand guidelines" (no repo named)</span></div>
+            <div class="turn agent"><span class="role" data-vi>Agent tự làm</span><span class="role" data-en>Agent does</span><span data-vi>Gọi <code>search_all_sources</code> — quét mọi repo trong <code>sources.json</code> cùng lúc</span><span data-en>Calls <code>search_all_sources</code> — scans every repo in <code>sources.json</code> at once</span></div>
+            <div class="turn result"><span class="role" data-vi>Kết quả</span><span class="role" data-en>Result</span>brand-guidelines (aidev3-web/SKILL-LIB)
 totalMatched: 1</div>
-        <div class="turn you"><span class="role" data-vi>Sau đó</span><span class="role" data-en>Then</span><span data-vi>Nói "cài cái đó đi" — quy trình giống tình huống 1</span><span data-en>Say "install that one" — same flow as case 1</span></div>
-      </div>
+            <div class="turn you"><span class="role" data-vi>Sau đó</span><span class="role" data-en>Then</span><span data-vi>Nói "cài cái đó đi" — quy trình giống tình huống 1</span><span data-en>Say "install that one" — same flow as case 1</span></div>
+          </div>
 
-      <div class="convo">
-        <h4><span class="num">3</span><span data-vi>Gỡ một skill không dùng nữa</span><span data-en>Remove a skill you don't use anymore</span></h4>
-        <div class="turn you"><span class="role" data-vi>Bạn gõ</span><span class="role" data-en>You type</span><span data-vi>"Gỡ skill brand-guidelines đi, tôi không dùng nữa"</span><span data-en>"Remove brand-guidelines, I don't use it anymore"</span></div>
-        <div class="turn agent"><span class="role" data-vi>Agent tự làm</span><span class="role" data-en>Agent does</span><span data-vi>Hỏi lại: có xóa luôn khỏi thư viện local không (việc này không hoàn tác được) → <code>remove_skill</code></span><span data-en>Confirms first: also delete from the local library too (permanent) → <code>remove_skill</code></span></div>
-        <div class="turn result"><span class="role" data-vi>Kết quả</span><span class="role" data-en>Result</span>undeployed: claude-code/global
+          <div class="convo" id="case-3">
+            <h4><span class="num">3</span><span data-vi>Gỡ một skill không dùng nữa</span><span data-en>Remove a skill you don't use anymore</span></h4>
+            <div class="turn you"><span class="role" data-vi>Bạn gõ</span><span class="role" data-en>You type</span><span data-vi>"Gỡ skill brand-guidelines đi, tôi không dùng nữa"</span><span data-en>"Remove brand-guidelines, I don't use it anymore"</span></div>
+            <div class="turn agent"><span class="role" data-vi>Agent tự làm</span><span class="role" data-en>Agent does</span><span data-vi>Hỏi lại: có xóa luôn khỏi thư viện local không (việc này không hoàn tác được) → <code>remove_skill</code></span><span data-en>Confirms first: also delete from the local library too (permanent) → <code>remove_skill</code></span></div>
+            <div class="turn result"><span class="role" data-vi>Kết quả</span><span class="role" data-en>Result</span>undeployed: claude-code/global
 libraryRemoved: true</div>
-        <div class="turn you"><span class="role" data-vi>Lưu ý</span><span class="role" data-en>Note</span><span data-vi>Nếu skill còn được dùng ở agent khác, thư viện local được giữ lại và báo lý do (<code>librarySkipReason</code>)</span><span data-en>If another agent still uses it, the local copy is kept and the reason is reported (<code>librarySkipReason</code>)</span></div>
-      </div>
+            <div class="turn you"><span class="role" data-vi>Lưu ý</span><span class="role" data-en>Note</span><span data-vi>Nếu skill còn được dùng ở agent khác, thư viện local được giữ lại và báo lý do (<code>librarySkipReason</code>)</span><span data-en>If another agent still uses it, the local copy is kept and the reason is reported (<code>librarySkipReason</code>)</span></div>
+          </div>
 
-      <div class="convo">
-        <h4><span class="num">4</span><span data-vi>Đóng góp skill bạn tự viết</span><span data-en>Contribute a skill you wrote yourself</span></h4>
-        <div class="turn you"><span class="role" data-vi>Bạn gõ</span><span class="role" data-en>You type</span><span data-vi>"Đẩy skill my-new-skill của tôi lên aidev3-web/SKILL-LIB, tên GitHub tôi là ..."</span><span data-en>"Push my my-new-skill to aidev3-web/SKILL-LIB, my GitHub username is ..."</span></div>
-        <div class="turn agent"><span class="role" data-vi>Agent tự làm</span><span class="role" data-en>Agent does</span><span data-vi><code>validate_skill</code> (chặn nếu sai định dạng) → <code>benchmark_skill</code> (mở session mới thật để test trigger/kết quả/độ ổn định, không đoán điểm) → <code>push_skill</code> lên nhánh riêng, chặn nếu bằng chứng không đạt, không đụng main</span><span data-en><code>validate_skill</code> (blocks if malformed) → <code>benchmark_skill</code> (spawns real fresh sessions to test trigger/outcome/stability, no guessed scores) → <code>push_skill</code> to its own branch, blocks on failed evidence, never main</span></div>
-        <div class="turn result"><span class="role" data-vi>Kết quả</span><span class="role" data-en>Result</span>status: "pushed"
+          <div class="convo" id="case-4">
+            <h4><span class="num">4</span><span data-vi>Đóng góp skill bạn tự viết</span><span data-en>Contribute a skill you wrote yourself</span></h4>
+            <div class="turn you"><span class="role" data-vi>Bạn gõ</span><span class="role" data-en>You type</span><span data-vi>"Đẩy skill my-new-skill của tôi lên aidev3-web/SKILL-LIB, tên GitHub tôi là ..."</span><span data-en>"Push my my-new-skill to aidev3-web/SKILL-LIB, my GitHub username is ..."</span></div>
+            <div class="turn agent"><span class="role" data-vi>Agent tự làm</span><span class="role" data-en>Agent does</span><span data-vi><code>validate_skill</code> (chặn nếu sai định dạng) → <code>benchmark_skill</code> (mở session mới thật để test trigger/kết quả/độ ổn định, không đoán điểm) → <code>push_skill</code> lên nhánh riêng, chặn nếu bằng chứng không đạt, không đụng main</span><span data-en><code>validate_skill</code> (blocks if malformed) → <code>benchmark_skill</code> (spawns real fresh sessions to test trigger/outcome/stability, no guessed scores) → <code>push_skill</code> to its own branch, blocks on failed evidence, never main</span></div>
+            <div class="turn result"><span class="role" data-vi>Kết quả</span><span class="role" data-en>Result</span>status: "pushed"
 commitUrl: github.com/.../commit/a1b2c3d</div>
-        <div class="turn you"><span class="role" data-vi>Bước cuối</span><span class="role" data-en>Last step</span><span data-vi>Nói "mở PR giúp tôi" — agent chạy <code>gh pr create</code>, người khác review rồi mới merge</span><span data-en>Say "open a PR for me" — the agent runs <code>gh pr create</code>, someone else reviews and merges</span></div>
+            <div class="turn you"><span class="role" data-vi>Bước cuối</span><span class="role" data-en>Last step</span><span data-vi>Nói "mở PR giúp tôi" — agent chạy <code>gh pr create</code>, người khác review rồi mới merge</span><span data-en>Say "open a PR for me" — the agent runs <code>gh pr create</code>, someone else reviews and merges</span></div>
+          </div>
+
+        </div>
+      </section>
+
+      <section id="benchmark" data-nav="benchmark">
+        <div class="breadcrumb"><span data-vi>Tham khảo</span><span data-en>Reference</span></div>
+        <h2><span data-vi>benchmark_skill chấm chất lượng như thế nào</span><span data-en>How benchmark_skill actually scores quality</span></h2>
+        <p class="lead"><span data-vi>6 lớp, mỗi lớp đo đúng 1 việc — Layer 1-3 bắt buộc bằng chứng thật từ session mới, không chấp nhận agent tự đoán điểm.</span><span data-en>6 layers, each measuring exactly one thing — Layers 1-3 require real evidence from fresh sessions, a guessed score is not accepted.</span></p>
+
+        <div class="layer-row" id="layer-0">
+          <code>0 · <span data-vi>Tĩnh</span><span data-en>Static</span></code>
+          <p><span data-vi>Máy tự tính: độ dài mô tả, từ ngữ mơ hồ, số file phụ trợ. Không cần chạy thử.</span><span data-en>Computed mechanically: description length, vague wording, module count. No execution needed.</span></p>
+        </div>
+        <div class="layer-row" id="layer-1">
+          <code>1 · Trigger</code>
+          <p><span data-vi>Mở session mới thật, thử 1 câu <b>nên</b> trigger + 1 câu <b>không nên</b> trigger, quan sát thật. Chặn nếu câu nên trigger không fire, hoặc câu không nên lại fire.</span><span data-en>Spawns a fresh real session, tests 1 prompt that <b>should</b> fire it + 1 that <b>shouldn't</b>, observes real behavior. Blocks if the should-fire prompt doesn't, or the shouldn't-fire prompt does.</span></p>
+        </div>
+        <div class="layer-row" id="layer-2">
+          <code>2 · <span data-vi>Kết quả</span><span data-en>Outcome</span></code>
+          <p><span data-vi>Mở 2 session thật cùng 1 việc: 1 có skill, 1 không có. So sánh chất lượng thật. Chặn nếu skill không giúp ích hơn.</span><span data-en>Spawns 2 real sessions on the same task: 1 with the skill, 1 without. Compares real quality. Blocks if the skill didn't help.</span></p>
+        </div>
+        <div class="layer-row" id="layer-3">
+          <code>3 · <span data-vi>Ổn định</span><span data-en>Stability</span></code>
+          <p><span data-vi>Chạy cùng 1 kịch bản <b>3 lần</b> thật (3 session), so sánh có giống nhau không. Chặn nếu &lt;3 lần hoặc không nhất quán.</span><span data-en>Runs the same scenario <b>3 real times</b> (3 sessions), compares consistency. Blocks if under 3 runs or inconsistent.</span></p>
+        </div>
+        <div class="layer-row" id="layer-4">
+          <code>4 · Edge case &amp; guardrail</code>
+          <p><span data-vi>Đọc SKILL.md và chấm 0-20 — có nêu rõ giới hạn/trường hợp đặc biệt không. Không cần chạy thử.</span><span data-en>Reads SKILL.md and scores 0-20 — does it call out its own limits/edge cases. No execution needed.</span></p>
+        </div>
+        <div class="layer-row" id="layer-5">
+          <code>5 · <span data-vi>Đúng phạm vi</span><span data-en>Scope</span></code>
+          <p><span data-vi>Đọc SKILL.md và chấm 0-20 — phạm vi có gọn, không lấn việc khác không. Không cần chạy thử.</span><span data-en>Reads SKILL.md and scores 0-20 — is the job narrowly bounded, no scope creep. No execution needed.</span></p>
+        </div>
+
+        <p style="font-size:.85rem;margin-top:16px">
+          <span data-vi>Vì server này không tự mở được session (không có khả năng gọi agent), <code>benchmark_skill</code> chỉ tính được Layer 0 — với Layer 1-3, nó trả về 1 "kế hoạch test" và giao lại cho chính agent đang chat (có khả năng mở session mới qua công cụ riêng của nó) thực thi thật, rồi báo kết quả cụ thể lại cho <code>push_skill</code>. <code>push_skill</code> kiểm tra từng field bằng chứng riêng (fire đúng/sai, có giúp ích không, có nhất quán không) — 1 tổng điểm cao không che được 1 lớp bị fail cụ thể.</span>
+          <span data-en>Because this server can't spawn sessions itself (no agent-orchestration capability), <code>benchmark_skill</code> only computes Layer 0 — for Layers 1-3, it returns a test plan and hands execution to the calling agent (which does have its own session-spawning tooling), which reports concrete results back to <code>push_skill</code>. <code>push_skill</code> checks each evidence field individually (fired correctly or not, actually helped or not, consistent or not) — a high total score can't paper over one specific failed layer.</span>
+        </p>
+        <p style="font-size:.85rem">
+          <span data-vi><b>Gọi 2 lần:</b> lần 1 chỉ có <code>skillPath</code> → nhận kế hoạch test ở trên. Sau khi thực thi xong cả 6 lớp, gọi lại lần 2 với <code>skillPath</code> + <code>results</code> → server ghi ra 1 file <code>&lt;tên-skill&gt;.benchmark-report.html</code> nằm <b>cạnh</b> thư mục skill (không nằm trong, để không vô tình bị push lên), chứa bảng đầy đủ 6 lớp + bằng chứng thật + xác nhận pass/fail tổng thể — lưu lại được, mở lại xem sau này.</span>
+          <span data-en><b>Called twice:</b> call 1 with just <code>skillPath</code> → returns the test plan above. Once all 6 layers are done, call again with <code>skillPath</code> + <code>results</code> → the server writes a <code>&lt;skill-name&gt;.benchmark-report.html</code> file <b>next to</b> the skill folder (not inside it, so it never gets pushed), containing the full 6-layer table + real evidence + an overall pass/fail verdict — a permanent, reopenable record.</span>
+        </p>
+      </section>
+
+      <section id="troubleshooting" data-nav="troubleshooting">
+        <div class="breadcrumb"><span data-vi>Tham khảo</span><span data-en>Reference</span></div>
+        <h2><span data-vi>Lưu ý &amp; sự cố có thể xảy ra</span><span data-en>Notes &amp; possible issues</span></h2>
+        <div class="tips4">
+          <div class="tip-card" id="issue-1">
+            <h4><span data-vi>1. Repo private không đọc được</span><span data-en>1. Private repo can't be read</span></h4>
+            <div class="badrow"><span class="x" data-vi>Nguyên nhân</span><span class="x" data-en>Cause</span> <span data-vi>Account gh chưa là collaborator trên repo</span><span data-en>The gh account isn't a collaborator on the repo</span></div>
+            <div class="okrow"><span class="v" data-vi>Xử lý</span><span class="v" data-en>Fix</span> <span data-vi>Kiểm tra <code>gh auth status</code>, nhờ admin thêm collaborator</span><span data-en>Check <code>gh auth status</code>, ask an admin to add you as collaborator</span></div>
+          </div>
+          <div class="tip-card" id="issue-2">
+            <h4><span data-vi>2. Server báo CONNECTION_CLOSED</span><span data-en>2. Server reports CONNECTION_CLOSED</span></h4>
+            <div class="badrow"><span class="x" data-vi>Nguyên nhân</span><span class="x" data-en>Cause</span> <span data-vi>Sai đường dẫn index.js hoặc chưa npm install</span><span data-en>Wrong index.js path or npm install not run</span></div>
+            <div class="okrow"><span class="v" data-vi>Xử lý</span><span class="v" data-en>Fix</span> <span data-vi>Kiểm tra lại path, chạy lại <code>npm install</code></span><span data-en>Recheck the path, rerun <code>npm install</code></span></div>
+          </div>
+          <div class="tip-card" id="issue-3">
+            <h4><span data-vi>3. Token GitHub cũ gây lỗi</span><span data-en>3. A stale GitHub token causes errors</span></h4>
+            <div class="badrow"><span class="x" data-vi>Nguyên nhân</span><span class="x" data-en>Cause</span> <span data-vi>GITHUB_TOKEN/GH_TOKEN cũ còn trong env, ưu tiên hơn gh login</span><span data-en>An old GITHUB_TOKEN/GH_TOKEN in the env takes priority over the gh login session</span></div>
+            <div class="okrow"><span class="v" data-vi>Xử lý</span><span class="v" data-en>Fix</span> <span data-vi>Unset biến môi trường đó trước khi dùng</span><span data-en>Unset that env var before using the server</span></div>
+          </div>
+          <div class="tip-card" id="issue-4">
+            <h4><span data-vi>4. remove_skill không xóa được source</span><span data-en>4. remove_skill can't delete the source</span></h4>
+            <div class="badrow"><span class="x" data-vi>Nguyên nhân</span><span class="x" data-en>Cause</span> <span data-vi>Còn agent/scope khác đang symlink tới skill đó</span><span data-en>Another agent/scope still symlinks to that skill</span></div>
+            <div class="okrow"><span class="v" data-vi>Xử lý</span><span class="v" data-en>Fix</span> <span data-vi>Bỏ filter scopes/targets để gỡ hết, hoặc xóa tay</span><span data-en>Drop the scopes/targets filter to remove them all, or delete by hand</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="closing" data-nav="closing">
+        <div class="closing">
+          <p class="big"><span data-vi>mcp-skill-lib không đơn thuần là chỗ lưu file,</span><span data-en>mcp-skill-lib isn't just a place to store files —</span></p>
+          <p class="quote"><span data-vi>nó là "cầu nối tri thức" giữa mọi agent MCP trên máy bạn.</span><span data-en>it's the "knowledge bridge" between every MCP agent on your machine.</span></p>
+          <p class="quote" style="margin-top:14px">
+            <span data-vi>Việc bạn cần làm là cài đúng một lần, sau đó chỉ cần nói chuyện bình thường với agent —<br>nó tự tìm, tự cài, tự gỡ skill giúp bạn, không cần nhớ tên tool nào cả.</span>
+            <span data-en>Set it up correctly once, then just talk to your agent in plain language —<br>it finds, installs and removes skills for you, no tool name to memorize.</span>
+          </p>
+        </div>
+      </section>
+
+    </main>
+
+    <aside class="side-right">
+      <div class="toc-label"><span data-vi>Trên trang này</span><span data-en>On this page</span></div>
+
+      <div class="toc-group" data-for="overview">
+        <ul>
+          <li><a href="#key-concepts" data-toc-link><span data-vi>Khái niệm chính</span><span data-en>Key concepts</span></a></li>
+          <li><a href="#before-you-start" data-toc-link><span data-vi>Trước khi dùng</span><span data-en>Before you start</span></a></li>
+          <li><a href="#situations" data-toc-link><span data-vi>4 tình huống</span><span data-en>4 situations</span></a></li>
+        </ul>
+      </div>
+      <div class="toc-group" data-for="quick-start">
+        <ul>
+          <li><a href="#step-1" data-toc-link><span data-vi>Bước 1</span><span data-en>Step 1</span></a></li>
+          <li><a href="#step-2" data-toc-link><span data-vi>Bước 2</span><span data-en>Step 2</span></a></li>
+          <li><a href="#step-3" data-toc-link><span data-vi>Bước 3</span><span data-en>Step 3</span></a></li>
+          <li><a href="#step-4" data-toc-link><span data-vi>Bước 4</span><span data-en>Step 4</span></a></li>
+          <li><a href="#init-prompt" data-toc-link><span data-vi>Prompt init</span><span data-en>Init prompt</span></a></li>
+        </ul>
+      </div>
+      <div class="toc-group" data-for="tools">
+        <ul>
+          <li><a href="#tools" data-toc-link><span data-vi>Danh sách 9 tool</span><span data-en>All 9 tools</span></a></li>
+        </ul>
+      </div>
+      <div class="toc-group" data-for="workflow">
+        <ul>
+          <li><a href="#flow-a" data-toc-link><span data-vi>Quy trình A — dùng skill</span><span data-en>Workflow A — use a skill</span></a></li>
+          <li><a href="#flow-b" data-toc-link><span data-vi>Quy trình B — đóng góp</span><span data-en>Workflow B — contribute</span></a></li>
+        </ul>
+      </div>
+      <div class="toc-group" data-for="usage">
+        <ul>
+          <li><a href="#case-1" data-toc-link><span data-vi>Case 1 — cài skill</span><span data-en>Case 1 — install</span></a></li>
+          <li><a href="#case-2" data-toc-link><span data-vi>Case 2 — tìm rộng</span><span data-en>Case 2 — broad search</span></a></li>
+          <li><a href="#case-3" data-toc-link><span data-vi>Case 3 — gỡ skill</span><span data-en>Case 3 — remove</span></a></li>
+          <li><a href="#case-4" data-toc-link><span data-vi>Case 4 — đóng góp</span><span data-en>Case 4 — contribute</span></a></li>
+        </ul>
+      </div>
+      <div class="toc-group" data-for="benchmark">
+        <ul>
+          <li><a href="#layer-0" data-toc-link>Layer 0 · <span data-vi>Tĩnh</span><span data-en>Static</span></a></li>
+          <li><a href="#layer-1" data-toc-link>Layer 1 · Trigger</a></li>
+          <li><a href="#layer-2" data-toc-link>Layer 2 · <span data-vi>Kết quả</span><span data-en>Outcome</span></a></li>
+          <li><a href="#layer-3" data-toc-link>Layer 3 · <span data-vi>Ổn định</span><span data-en>Stability</span></a></li>
+          <li><a href="#layer-4" data-toc-link>Layer 4 · Edge case</a></li>
+          <li><a href="#layer-5" data-toc-link>Layer 5 · <span data-vi>Phạm vi</span><span data-en>Scope</span></a></li>
+        </ul>
+      </div>
+      <div class="toc-group" data-for="troubleshooting">
+        <ul>
+          <li><a href="#issue-1" data-toc-link><span data-vi>1. Repo private</span><span data-en>1. Private repo</span></a></li>
+          <li><a href="#issue-2" data-toc-link>2. CONNECTION_CLOSED</a></li>
+          <li><a href="#issue-3" data-toc-link><span data-vi>3. Token cũ</span><span data-en>3. Stale token</span></a></li>
+          <li><a href="#issue-4" data-toc-link><span data-vi>4. remove_skill</span><span data-en>4. remove_skill</span></a></li>
+        </ul>
+      </div>
+      <div class="toc-group" data-for="closing">
+        <div class="toc-empty"><span data-vi>Hết trang</span><span data-en>End of page</span></div>
       </div>
 
-    </div>
-  </div>
+    </aside>
 
-  <div class="section">
-    <h2><span data-vi>9 TOOL ĐỨNG SAU (bạn không cần gọi tay)</span><span data-en>THE 9 TOOLS BEHIND IT (you never call these by hand)</span></h2>
-    <div class="toollist">
-      <div class="tool-chip"><code>search_remote_skills</code><span data-vi>Tìm trong 1 repo đã biết</span><span data-en>Search one known repo</span></div>
-      <div class="tool-chip"><code>search_all_sources</code><span data-vi>Tìm trên mọi repo trong sources.json</span><span data-en>Search every repo in sources.json</span></div>
-      <div class="tool-chip"><code>pull_skill</code><span data-vi>Kéo skill về thư viện local</span><span data-en>Fetch a skill into the local library</span></div>
-      <div class="tool-chip"><code>detect_agents</code><span data-vi>Dò agent nào có mặt trên máy</span><span data-en>Detect which agents are present</span></div>
-      <div class="tool-chip"><code>deploy_skill</code><span data-vi>Symlink skill vào từng agent</span><span data-en>Symlink the skill into each agent</span></div>
-      <div class="tool-chip"><code>remove_skill</code><span data-vi>Gỡ symlink &amp; dọn thư viện</span><span data-en>Undo the deploy &amp; clean up the library</span></div>
-      <div class="tool-chip"><code>validate_skill</code><span data-vi>Kiểm tra định dạng, không cần mạng</span><span data-en>Check the format, no network needed</span></div>
-      <div class="tool-chip"><code>benchmark_skill</code><span data-vi>Chấm 6 lớp chất lượng — Trigger/Kết quả/Ổn định cần bằng chứng thật từ session mới, không đoán điểm</span><span data-en>Scores 6 quality layers — Trigger/Outcome/Stability need real fresh-session evidence, no guessed scores</span></div>
-      <div class="tool-chip"><code>push_skill</code><span data-vi>Đẩy skill lên GitHub qua feature branch</span><span data-en>Push the skill to GitHub via a feature branch</span></div>
-    </div>
   </div>
-
-  <div class="section">
-    <h2><span data-vi>BENCHMARK_SKILL CHẤM CHẤT LƯỢNG NHƯ THẾ NÀO</span><span data-en>HOW BENCHMARK_SKILL ACTUALLY SCORES QUALITY</span></h2>
-    <div class="section-sub"><span data-vi>6 lớp, mỗi lớp đo đúng 1 việc — Layer 1-3 bắt buộc bằng chứng thật từ session mới, không chấp nhận agent tự đoán điểm</span><span data-en>6 layers, each measuring exactly one thing — Layers 1-3 require real evidence from fresh sessions, a guessed score is not accepted</span></div>
-    <div class="toollist" style="grid-template-columns:repeat(3,1fr)">
-      <div class="tool-chip"><code>0 · <span data-vi>Tĩnh</span><span data-en>Static</span></code><span data-vi>Máy tự tính: độ dài mô tả, từ ngữ mơ hồ, số file phụ trợ. Không cần chạy thử</span><span data-en>Computed mechanically: description length, vague wording, module count. No execution needed</span></div>
-      <div class="tool-chip"><code>1 · Trigger</code><span data-vi>Mở session mới thật, thử 1 câu <b>nên</b> trigger + 1 câu <b>không nên</b> trigger, quan sát thật. Chặn nếu câu nên trigger không fire, hoặc câu không nên lại fire</span><span data-en>Spawns a fresh real session, tests 1 prompt that <b>should</b> fire it + 1 that <b>shouldn't</b>, observes real behavior. Blocks if the should-fire prompt doesn't, or the shouldn't-fire prompt does</span></div>
-      <div class="tool-chip"><code>2 · <span data-vi>Kết quả</span><span data-en>Outcome</span></code><span data-vi>Mở 2 session thật cùng 1 việc: 1 có skill, 1 không có. So sánh chất lượng thật. Chặn nếu skill không giúp ích hơn</span><span data-en>Spawns 2 real sessions on the same task: 1 with the skill, 1 without. Compares real quality. Blocks if the skill didn't help</span></div>
-      <div class="tool-chip"><code>3 · <span data-vi>Ổn định</span><span data-en>Stability</span></code><span data-vi>Chạy cùng 1 kịch bản <b>3 lần</b> thật (3 session), so sánh có giống nhau không. Chặn nếu &lt;3 lần hoặc không nhất quán</span><span data-en>Runs the same scenario <b>3 real times</b> (3 sessions), compares consistency. Blocks if under 3 runs or inconsistent</span></div>
-      <div class="tool-chip"><code>4 · Edge case &amp; guardrail</code><span data-vi>Đọc SKILL.md và chấm 0-20 — có nêu rõ giới hạn/trường hợp đặc biệt không. Không cần chạy thử</span><span data-en>Reads SKILL.md and scores 0-20 — does it call out its own limits/edge cases. No execution needed</span></div>
-      <div class="tool-chip"><code>5 · <span data-vi>Đúng phạm vi</span><span data-en>Scope</span></code><span data-vi>Đọc SKILL.md và chấm 0-20 — phạm vi có gọn, không lấn việc khác không. Không cần chạy thử</span><span data-en>Reads SKILL.md and scores 0-20 — is the job narrowly bounded, no scope creep. No execution needed</span></div>
-    </div>
-    <div class="section-sub" style="margin-top:12px;text-align:left">
-      <span data-vi>Vì server này không tự mở được session (không có khả năng gọi agent), <code>benchmark_skill</code> chỉ tính được Layer 0 — với Layer 1-3, nó trả về 1 "kế hoạch test" và giao lại cho chính agent đang chat (có khả năng mở session mới qua công cụ riêng của nó) thực thi thật, rồi báo kết quả cụ thể lại cho <code>push_skill</code>. <code>push_skill</code> kiểm tra từng field bằng chứng riêng (fire đúng/sai, có giúp ích không, có nhất quán không) — 1 tổng điểm cao không che được 1 lớp bị fail cụ thể.</span>
-      <span data-en>Because this server can't spawn sessions itself (no agent-orchestration capability), <code>benchmark_skill</code> only computes Layer 0 — for Layers 1-3, it returns a test plan and hands execution to the calling agent (which does have its own session-spawning tooling), which reports concrete results back to <code>push_skill</code>. <code>push_skill</code> checks each evidence field individually (fired correctly or not, actually helped or not, consistent or not) — a high total score can't paper over one specific failed layer.</span>
-    </div>
-    <div class="section-sub" style="margin-top:10px;text-align:left">
-      <span data-vi><b>Gọi 2 lần:</b> lần 1 chỉ có <code>skillPath</code> → nhận kế hoạch test ở trên. Sau khi thực thi xong cả 6 lớp, gọi lại lần 2 với <code>skillPath</code> + <code>results</code> → server ghi ra 1 file <code>&lt;tên-skill&gt;.benchmark-report.html</code> nằm <b>cạnh</b> thư mục skill (không nằm trong, để không vô tình bị push lên), chứa bảng đầy đủ 6 lớp + bằng chứng thật + xác nhận pass/fail tổng thể — lưu lại được, mở lại xem sau này.</span>
-      <span data-en><b>Called twice:</b> call 1 with just <code>skillPath</code> → returns the test plan above. Once all 6 layers are done, call again with <code>skillPath</code> + <code>results</code> → the server writes a <code>&lt;skill-name&gt;.benchmark-report.html</code> file <b>next to</b> the skill folder (not inside it, so it never gets pushed), containing the full 6-layer table + real evidence + an overall pass/fail verdict — a permanent, reopenable record.</span>
-    </div>
-  </div>
-
-  <div class="section">
-    <h2><span data-vi>LƯU Ý &amp; SỰ CỐ CÓ THỂ XẢY RA</span><span data-en>NOTES &amp; POSSIBLE ISSUES</span></h2>
-    <div class="tips4">
-      <div class="tip-card">
-        <h4><span data-vi>1. Repo private không đọc được</span><span data-en>1. Private repo can't be read</span></h4>
-        <div class="badrow"><span class="x" data-vi>Nguyên nhân</span><span class="x" data-en>Cause</span> <span data-vi>Account gh chưa là collaborator trên repo</span><span data-en>The gh account isn't a collaborator on the repo</span></div>
-        <div class="okrow"><span class="v" data-vi>Xử lý</span><span class="v" data-en>Fix</span> <span data-vi>Kiểm tra <code>gh auth status</code>, nhờ admin thêm collaborator</span><span data-en>Check <code>gh auth status</code>, ask an admin to add you as collaborator</span></div>
-      </div>
-      <div class="tip-card">
-        <h4><span data-vi>2. Server báo CONNECTION_CLOSED</span><span data-en>2. Server reports CONNECTION_CLOSED</span></h4>
-        <div class="badrow"><span class="x" data-vi>Nguyên nhân</span><span class="x" data-en>Cause</span> <span data-vi>Sai đường dẫn index.js hoặc chưa npm install</span><span data-en>Wrong index.js path or npm install not run</span></div>
-        <div class="okrow"><span class="v" data-vi>Xử lý</span><span class="v" data-en>Fix</span> <span data-vi>Kiểm tra lại path, chạy lại <code>npm install</code></span><span data-en>Recheck the path, rerun <code>npm install</code></span></div>
-      </div>
-      <div class="tip-card">
-        <h4><span data-vi>3. Token GitHub cũ gây lỗi</span><span data-en>3. A stale GitHub token causes errors</span></h4>
-        <div class="badrow"><span class="x" data-vi>Nguyên nhân</span><span class="x" data-en>Cause</span> <span data-vi>GITHUB_TOKEN/GH_TOKEN cũ còn trong env, ưu tiên hơn gh login</span><span data-en>An old GITHUB_TOKEN/GH_TOKEN in the env takes priority over the gh login session</span></div>
-        <div class="okrow"><span class="v" data-vi>Xử lý</span><span class="v" data-en>Fix</span> <span data-vi>Unset biến môi trường đó trước khi dùng</span><span data-en>Unset that env var before using the server</span></div>
-      </div>
-      <div class="tip-card">
-        <h4><span data-vi>4. remove_skill không xóa được source</span><span data-en>4. remove_skill can't delete the source</span></h4>
-        <div class="badrow"><span class="x" data-vi>Nguyên nhân</span><span class="x" data-en>Cause</span> <span data-vi>Còn agent/scope khác đang symlink tới skill đó</span><span data-en>Another agent/scope still symlinks to that skill</span></div>
-        <div class="okrow"><span class="v" data-vi>Xử lý</span><span class="v" data-en>Fix</span> <span data-vi>Bỏ filter scopes/targets để gỡ hết, hoặc xóa tay</span><span data-en>Drop the scopes/targets filter to remove them all, or delete by hand</span></div>
-      </div>
-    </div>
-  </div>
-
-  <div class="closing">
-    <p class="big"><span data-vi>mcp-skill-lib không đơn thuần là chỗ lưu file,</span><span data-en>mcp-skill-lib isn't just a place to store files —</span></p>
-    <p class="quote"><span data-vi>nó là "cầu nối tri thức" giữa mọi agent MCP trên máy bạn.</span><span data-en>it's the "knowledge bridge" between every MCP agent on your machine.</span></p>
-    <p class="quote" style="margin-top:14px">
-      <span data-vi>Việc bạn cần làm là cài đúng một lần, sau đó chỉ cần nói chuyện bình thường với agent —<br>nó tự tìm, tự cài, tự gỡ skill giúp bạn, không cần nhớ tên tool nào cả.</span>
-      <span data-en>Set it up correctly once, then just talk to your agent in plain language —<br>it finds, installs and removes skills for you, no tool name to memorize.</span>
-    </p>
-  </div>
-
-</div>
 
 <script>
 function setLang(lang){
@@ -420,6 +694,39 @@ function copyInitPrompt(){
   var text = document.getElementById('init-prompt-text').innerText;
   if(navigator.clipboard){ navigator.clipboard.writeText(text); }
 }
+
+// ---- scrollspy: highlight active left-nav section + swap the matching
+// "On this page" group in the right sidebar, mirroring a real docs site ----
+(function(){
+  var sections = Array.prototype.slice.call(document.querySelectorAll('main.doc-main > section[data-nav]'));
+  var navLinks = document.querySelectorAll('[data-nav-link]');
+  var tocGroups = document.querySelectorAll('.toc-group');
+
+  function setActive(id){
+    navLinks.forEach(function(a){ a.classList.toggle('active', a.getAttribute('data-nav-link') === id); });
+    tocGroups.forEach(function(g){ g.classList.toggle('active', g.getAttribute('data-for') === id); });
+  }
+
+  if ('IntersectionObserver' in window){
+    var observer = new IntersectionObserver(function(entries){
+      var visible = entries.filter(function(e){ return e.isIntersecting; });
+      if (visible.length){
+        visible.sort(function(a,b){ return a.boundingClientRect.top - b.boundingClientRect.top; });
+        setActive(visible[0].target.getAttribute('data-nav'));
+      }
+    }, { rootMargin: '-70px 0px -70% 0px', threshold: 0 });
+    sections.forEach(function(s){ observer.observe(s); });
+  }
+
+  setActive('overview');
+
+  document.querySelectorAll('[data-toc-link]').forEach(function(a){
+    a.addEventListener('click', function(){
+      document.querySelectorAll('[data-toc-link]').forEach(function(x){ x.classList.remove('active'); });
+      a.classList.add('active');
+    });
+  });
+})();
 </script>
 </body>
 </html>

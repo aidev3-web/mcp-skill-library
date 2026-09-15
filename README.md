@@ -160,14 +160,13 @@ Install and register the "mcp-skill-lib" MCP server
    `gh auth status` (if not logged in, tell me to run `gh auth login` and
    wait for me to confirm it succeeded before continuing). This server
    reads no token of any kind — it shells out to `gh` for every GitHub
-   call, using whichever account `gh` is logged in as.
+   call, using whichever account `gh` is logged in as. Do NOT ask me
+   which repo(s) I want to use right now — that's decided later, per
+   search/pull call, not during install. Just note for later: a private
+   repo needs me to already be a collaborator on it (`gh auth login`
+   alone doesn't grant that).
 
-4. Ask me which GitHub repo(s) I want to browse/pull skills from. If any
-   of them are private, remind me I need to already be a collaborator on
-   them (ask a repo admin if not) — `gh auth login` alone doesn't grant
-   access to a repo you're not added to.
-
-5. Identify which agent you are:
+4. Identify which agent you are:
    - Claude Code CLI → use `claude mcp add`.
    - Claude Desktop → edit claude_desktop_config.json.
    - OpenCode → edit opencode.json.
@@ -178,7 +177,7 @@ Install and register the "mcp-skill-lib" MCP server
      (workspace-only), or use the UI: **...** at the top of the Agent panel →
      **MCP Servers** → **Manage MCP Servers** → **View raw config**.
 
-6. Register the server for yourself using the exact command/config
+5. Register the server for yourself using the exact command/config
    snippet for your agent type, from this repo's README.md
    ("Register with your agent" section). Prefer the recommended
    local-run install: `git clone https://github.com/aidev3-web/mcp-skill-library.git`
@@ -188,14 +187,13 @@ Install and register the "mcp-skill-lib" MCP server
    rather not manage a local checkout. No `env` block or token of any
    kind is needed in either case.
 
-7. If SKILL_LIBRARY_PATH should be anything other than the default
-   (~/.skill-library), ask me for the path and add it in an `env`
-   block alongside the command.
+6. Always use the default SKILL_LIBRARY_PATH (~/.skill-library) — do not
+   ask me about this or add an `env` block for it.
 
-8. Tell me to restart you (or reload MCP servers) so the new config
+7. Tell me to restart you (or reload MCP servers) so the new config
    is picked up.
 
-9. Once restarted, call the `detect_agents` tool once and
+8. Once restarted, call the `detect_agents` tool once and
    report back which agent locations were found on this machine, to
    confirm the server is actually running.
 ```
