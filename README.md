@@ -27,8 +27,8 @@ server", the exact steps are below — no guessing required.
   from**, if that repo is private — ask a repo admin to add your GitHub
   account. This is enforced by GitHub itself (a non-collaborator's `gh`
   session simply can't read a private repo), not by anything in this code.
-  `push_skill` additionally needs **write** access on the target
-  repo.
+  `push_skill` needs **no** write access on the library repo — it forks it
+  under your own account and opens a PR (see "Recommended workflow" below).
 - **If this machine ever ran an older, token-based version of this server:
   unset `GITHUB_TOKEN` (and `GH_TOKEN`) from its environment.** `gh` uses
   either of those env vars *instead of* your `gh auth login` session if
@@ -204,6 +204,7 @@ Install and register the "mcp-skill-lib" MCP server
 |---|---|
 | `search_remote_skills` | Find `SKILL.md` folders in a GitHub repo by path substring — no full clone, paginated |
 | `search_all_sources` | Same search, but across every repo listed in `sources.json` (shared, versioned in this package) plus `sources.local.json` (optional, personal, under `SKILL_LIBRARY_PATH`) — one call instead of calling `search_remote_skills` once per repo |
+| `find_skills` | Search the **whole open skill ecosystem**, not just the curated list, via the [skills.sh](https://skills.sh) registry. Matches **semantically**, so a query phrased one way finds skills that describe the same job differently. Returns an install count per hit. Use it when `search_all_sources` came up empty — see [Finding a skill nobody has curated yet](#finding-a-skill-nobody-has-curated-yet) |
 | `pull_skill` | Fetch specific skill folders and copy them into the local skill library |
 | `detect_agents` | Detect which agents (Claude Code, Codex, OpenCode, Cursor, Gemini CLI, GitHub Copilot) have a skills folder on this machine |
 | `deploy_skill` | Symlink a pulled skill into every detected agent's skills folder (falls back to a copy if symlinking isn't available). Takes an optional `scopes` filter (`global`/`project`) — the calling agent should ask the user which scope(s) they want before calling this, the same way Claude Code's own plugin installer asks "user scope" vs "project scope" |
@@ -230,26 +231,95 @@ covers each one:
 | `owner`/`repo` must match `[A-Za-z0-9._-]{1,100}` before they reach an API path | Every GitHub path is built by interpolation; a `/` or `?` in a name would reshape the request |
 | `pull_skill` writes raw bytes, never a UTF-8 round-trip | Verified against a real 78 KB font: the old text path inflated it to 98 KB of U+FFFD. Skills legitimately ship PDFs, images and fonts |
 
+### Finding a skill nobody has curated yet
+
+`search_all_sources` only ever sees the repos listed in `sources.json` /
+`sources.local.json`. When the skill you want isn't in any of them, `find_skills`
+searches the wider ecosystem through the **skills.sh** registry — the index
+behind Vercel Labs' open-source `npx skills` CLI.
+
+**Phrase the query as a sentence, not as keywords.** The registry matches a
+multi-word query *semantically*; a single word falls back to fuzzy name
+matching. The result object reports which happened, in `searchType`
+(`"semantic"` / `"fuzzy"`), because it changes how much to trust the hits.
+
+This matters more than it sounds. A skill whose entire purpose is stopping an
+agent from over-engineering, but which calls that *"scope creep"*, is
+unreachable by a keyword search for "over-engineering" — and reachable by a
+semantic search for *"keep a coding agent from adding features nobody asked
+for"*.
+
+Each hit carries an **install count** from the registry's CLI telemetry. Read
+it as *popularity, not review* — skills.sh says so itself. Nobody has audited
+these; that is what `validate_skill` and `benchmark_skill` are for.
+
+> **An install count can point at the wrong copy.** A widely-forked skill is
+> often indexed under a redistributor's repo rather than its origin, and the
+> copy may carry no license even when the original is MIT. If a hit's
+> frontmatter names an `upstream`, prefer the upstream repo.
+
+Two fields need GitHub, not the registry: the skill's **real folder path** (the
+registry returns only `owner/repo/skillId`) and its **description**. `find_skills`
+resolves both by reading one cached repo tree per distinct repo, so a hit can be
+handed straight to `pull_skill`. Pass `resolveDetails: false` to skip that —
+roughly 1.6s instead of 5.6s for a page of 8, at the cost of `path` and
+`description` coming back `null`.
+
+**This is the one tool with an external dependency.** Everything else here needs
+only `gh`. Specifics worth knowing before relying on it:
+
+- It calls `https://skills.sh/api/search`, which needs **no token or API key** —
+  consistent with this project's "never store a credential" rule.
+- That endpoint is **not in skills.sh's published API docs** (the documented
+  `/api/v1/*` endpoints require a Vercel OIDC token and answer `401`). It could
+  change shape or disappear. Every failure mode — auth added, endpoint retired
+  and answering HTML, host unreachable, request hung — is covered in
+  `test/registry.test.js` and surfaces as a clear message, never a crash.
+- Set `SKILLS_REGISTRY_URL` to point at a mirror if that ever happens.
+- If the registry is down, `search_all_sources` is unaffected — it reads GitHub
+  directly.
+
 ### Recommended workflow for publishing a locally-created skill
 
-`push_skill` never pushes straight to the repo's default branch
-(`main`/`master`) — it always targets a feature branch (auto-named
-`skill/<skillName>` if you don't pass one), creating it from the current
-default-branch head if it doesn't exist yet. The full recommended flow:
+The library repo is **public and read-only to contributors** — you are
+deliberately not a collaborator on it. So `push_skill` never writes to the
+upstream repo at all (creating a branch there is already a write). It uses
+GitHub's standard outside-contributor route instead: fork, commit to the fork,
+open a pull request.
 
-1. **Validate & benchmark** — `validate_skill`, then `benchmark_skill` and pass its result as `push_skill`'s `benchmark` argument.
-2. **Push** — `push_skill` to the feature branch.
-3. **Pull it back down to verify** — `search_remote_skills` /
-   `pull_skill` with `ref` set to that same branch, to confirm
-   the skill round-tripped correctly (not just trusting the local copy).
-4. **Open a PR** — e.g. `gh pr create --base <default branch> --head
-   skill/<skillName>` — once step 3 looks right.
-5. **A human reviews and merges** — this repo's `CODEOWNERS` already
-   requires review before merge; the tool never merges anything itself.
+```
+upstream/SKILL-LIB (read-only)          you/SKILL-LIB (your fork)
+         main  ◄────── PR #12 ──────  skill/git-commit-check
+         main  ◄────── PR #13 ──────  skill/daily-report
+```
 
-Only pass `allowDirectToDefaultBranch: true` if a human has explicitly asked
-for a direct push, bypassing this workflow — it's a deliberate, rarely-needed
-escape hatch, not the default path.
+What one `push_skill` call does:
+
+1. **Runs every gate first** — validate → benchmark → credential sweep →
+   dangerous-instruction sweep → identity check. All of these fail closed
+   *before* any GitHub call, exactly as before.
+2. **Resolves your fork** — reuses it if you have one, creates it if you
+   don't (and waits out GitHub's async fork-creation window). If you own a
+   same-named repo that is *not* a fork of this upstream, it refuses with
+   `status: "fork-name-conflict"` rather than committing into the wrong project.
+3. **Commits to a branch in your fork** — one branch per skill, named
+   `skill/<skillName>` unless you pass `branch`. A new branch starts from
+   *upstream's* current default-branch head, so the PR diff stays limited to
+   your skill even if your fork has gone stale.
+4. **Opens the PR back to upstream** — or, if a PR is already open for that
+   skill's branch, adds the commit to it instead of opening a duplicate.
+   `pullRequestAction` in the result says which happened (`created` /
+   `updated`).
+5. **A human reviews and merges** — this repo's `CODEOWNERS` requires review
+   before merge; the tool never merges anything itself.
+
+The commit is pushed to your fork *before* the PR step, so if PR creation
+fails the skill is not lost — the result carries a warning with the exact
+`gh pr create` command to finish by hand.
+
+To verify a push round-tripped, pull it back from your fork:
+`pull_skill` with `owner` set to your own account and `ref` set to the
+branch name the result reports.
 
 ## Configuration
 
@@ -259,6 +329,11 @@ escape hatch, not the default path.
   `GITHUB_TOKEN` (or any other token) anywhere in this codebase.
 - `SKILL_LIBRARY_PATH` (optional) — where `pull_skill`/`deploy_skill` read and
   write skill content locally. Defaults to `~/.skill-library`.
+- `SKILLS_REGISTRY_URL` (optional) — overrides the skills.sh search endpoint
+  `find_skills` calls. Defaults to `https://skills.sh/api/search`. Point it at a
+  mirror if that endpoint ever moves; the test suite also uses it to exercise
+  the failure path against a closed port without touching the network. Not a
+  credential — the endpoint is public.
 - `sources.json` (in this package) — the shared list of repos
   `search_all_sources` searches across. Add a repo by opening a
   PR to this file:

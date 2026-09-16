@@ -20,11 +20,17 @@ import {
   createTree,
   createCommit,
   updateRef,
+  getFork,
+  createFork,
+  findOpenPull,
+  createPull,
 } from './lib/github.js';
 import { parseFrontmatter } from './lib/frontmatter.js';
 import { detectAgents, deploySkill, removeSkill, findRemainingDeployments } from './lib/agents.js';
 import { validateSkillFolder } from './lib/validate.js';
-import { walkSkillFiles, findSecretFiles } from './lib/localfs.js';
+import { isSkillManifestPath, mapWithConcurrency } from './lib/util.js';
+import { searchRegistry } from './lib/registry.js';
+import { walkSkillFiles, findSecretFiles, findDangerousInstructions } from './lib/localfs.js';
 import { computeStaticSignals, buildTestPlan, buildReportHtml, writeReport } from './lib/benchmark.js';
 
 // Independent of where this tool's own code lives — set SKILL_LIBRARY_PATH to
@@ -32,6 +38,7 @@ import { computeStaticSignals, buildTestPlan, buildReportHtml, writeReport } fro
 const LIBRARY_ROOT = process.env.SKILL_LIBRARY_PATH
   ? path.resolve(process.env.SKILL_LIBRARY_PATH)
   : path.join(os.homedir(), '.skill-library');
+
 
 // Short-lived in-memory cache so paginated search_remote_skills calls (and a
 // follow-up pull_skill) don't re-fetch the whole repo tree every time.
@@ -208,6 +215,7 @@ server.registerTool(
       return {
         content: [{ type: 'text', text: 'No sources configured — add at least one to sources.json (shared) or sources.local.json (personal, under SKILL_LIBRARY_PATH).' }],
         isError: true,
+        structuredContent: { items: [], totalMatched: 0 },
       };
     }
 
@@ -264,6 +272,160 @@ server.registerTool(
     return {
       content: [{ type: 'text', text: (items.length ? `${summary}\n\n${listing}` : summary) + failedNote }],
       structuredContent: { items, sourcesSearched, totalMatched },
+    };
+  },
+);
+
+server.registerTool(
+  'find_skills',
+  {
+    description:
+      'Search the open Agent Skill ecosystem for skills matching a free-text query, via the skills.sh registry (public endpoint, no token or API key — same as every other tool here). Use this when search_all_sources found nothing: that one only covers the fixed repo list in sources.json/sources.local.json, while this reaches the whole indexed ecosystem. The registry matches SEMANTICALLY for a multi-word query, so "prevent an agent over-engineering" also finds skills that call the same idea "scope creep" — phrase the query as a sentence describing the job, not as keywords. Each result carries an INSTALL COUNT, the only quality signal available before reading the skill itself; treat it as popularity, not review. Results are UNVETTED — still run validate_skill and benchmark_skill before using or pushing any of them. Each hit is resolved against its GitHub repo to recover the real folder path and description so the result can be handed straight to pull_skill; if GitHub is unreachable those two fields come back null and the rest is still usable.',
+    inputSchema: {
+      query: z
+        .string()
+        .min(2)
+        .describe('Describe what the skill should DO, as a phrase rather than keywords, e.g. "keep a coding agent from adding features nobody asked for". Multi-word queries are matched semantically; a single word falls back to fuzzy name matching.'),
+      limit: z.number().int().min(1).max(50).default(20).describe('Max results to return'),
+      resolveDetails: z
+        .boolean()
+        .optional()
+        .default(true)
+        .describe('Look each hit up on GitHub to fill in its real folder path and description. Costs ordinary REST quota (~5000/hour, cached). Set false for a faster, registry-only answer when you just want names and install counts.'),
+    },
+    outputSchema: {
+      items: z.array(
+        z.object({
+          owner: z.string(),
+          repo: z.string(),
+          path: z.string().nullable().describe('Folder inside the repo holding SKILL.md, ready for pull_skill. Null when details were not resolved or the skill could not be located in the repo.'),
+          name: z.string(),
+          description: z.string().nullable(),
+          installs: z.number().describe('Install count from the registry — popularity, not a quality review.'),
+          htmlUrl: z.string().nullable(),
+        }),
+      ),
+      searchType: z.string().describe('How the registry read the query: "semantic" (multi-word) or "fuzzy" (single word).'),
+      totalMatched: z.number(),
+      unresolved: z.array(z.string()).describe('Registry hits whose folder could not be located on GitHub, as "owner/repo/skillId".'),
+    },
+  },
+  async ({ query, limit, resolveDetails }) => {
+    let searchType = 'unknown';
+    let hits = [];
+    try {
+      const r = await searchRegistry(query, { limit });
+      searchType = r.searchType;
+      hits = r.items;
+    } catch (err) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text:
+              `Skill registry search failed: ${String(err?.message || err)}\n\n` +
+              `search_all_sources still works — it reads the curated repo list directly from GitHub and does not depend on skills.sh.`,
+          },
+        ],
+        isError: true,
+        // outputSchema declares these as required; without them a
+        // schema-validating client rejects the response and the user never
+        // sees the message above.
+        structuredContent: { items: [], searchType, totalMatched: 0, unresolved: [] },
+      };
+    }
+
+    if (!hits.length) {
+      return {
+        content: [{ type: 'text', text: `No skills found for "${query}". Try describing the job in a full phrase — the registry matches multi-word queries semantically, so a sentence usually beats keywords.` }],
+        structuredContent: { items: [], searchType, totalMatched: 0, unresolved: [] },
+      };
+    }
+
+    // The registry returns owner/repo/skillId but not where the skill actually
+    // lives in the repo ("skills/x", ".claude/skills/x", the root...), and no
+    // description. Both are needed before a result can be handed to
+    // pull_skill, so resolve them from the repo tree — one cached tree per
+    // DISTINCT repo, not one call per hit.
+    const unresolved = [];
+    let items = hits.map((h) => ({
+      owner: h.owner,
+      repo: h.repo,
+      path: null,
+      name: h.name,
+      description: null,
+      installs: h.installs,
+      htmlUrl: null,
+    }));
+
+    if (resolveDetails) {
+      const repos = [...new Set(hits.map((h) => `${h.owner}/${h.repo}`))];
+      const trees = new Map();
+      await mapWithConcurrency(repos, 5, async (full) => {
+        const [owner, repo] = full.split('/');
+        try {
+          const { tree, ref } = await loadTree(owner, repo, undefined);
+          trees.set(full, { tree, ref });
+        } catch {
+          // Private, renamed, deleted, or rate-limited — the registry row is
+          // still a real result, so keep it with nulls rather than dropping it.
+        }
+      });
+
+      items = await mapWithConcurrency(hits, 8, async (h, i) => {
+        const base = items[i];
+        const entry = trees.get(`${h.owner}/${h.repo}`);
+        if (!entry) {
+          unresolved.push(`${h.owner}/${h.repo}/${h.skillId}`);
+          return base;
+        }
+        // Match the manifest whose own folder is named after the skill.
+        const manifest = entry.tree.find(
+          (e) => isSkillManifestPath(e.path) && e.path.split('/').slice(-2, -1)[0] === h.skillId,
+        );
+        if (!manifest) {
+          unresolved.push(`${h.owner}/${h.repo}/${h.skillId}`);
+          return base;
+        }
+        const dir = manifest.path.slice(0, -'/SKILL.md'.length);
+        let description = null;
+        try {
+          description = parseFrontmatter(await getBlobText(h.owner, h.repo, manifest.sha))?.description ?? null;
+        } catch {
+          // Keep the path we did resolve — it is the field pull_skill needs.
+        }
+        return {
+          ...base,
+          path: dir,
+          description,
+          htmlUrl: `https://github.com/${h.owner}/${h.repo}/blob/${entry.ref}/${manifest.path}`,
+        };
+      });
+    }
+
+    const listing = items
+      .map((it) => {
+        const where = it.path === null ? `${it.owner}/${it.repo}` : `${it.owner}/${it.repo}: ${it.path}`;
+        return `- ${it.name} [${it.installs} installs] (${where})${it.description ? `: ${it.description}` : ''}`;
+      })
+      .join('\n');
+
+    const typeNote =
+      searchType === 'semantic'
+        ? 'Matched semantically, so results may use different wording than your query.'
+        : searchType === 'fuzzy'
+          ? 'Matched fuzzily on names only (single-word query) — phrase it as a sentence for semantic matching.'
+          : `Registry reported searchType "${searchType}".`;
+    const unresolvedNote = unresolved.length
+      ? ` ${unresolved.length} could not be located on GitHub (repo private, renamed, or the skill folder is named differently) — those have no path and cannot be pulled directly.`
+      : '';
+    const summary =
+      `Found ${items.length} skill(s) in the skills.sh registry. ${typeNote}${unresolvedNote}` +
+      ` Install counts are popularity, NOT a quality review — these are UNVETTED, so run validate_skill + benchmark_skill before using or pushing any of them.`;
+
+    return {
+      content: [{ type: 'text', text: `${summary}\n\n${listing}` }],
+      structuredContent: { items, searchType, totalMatched: items.length, unresolved },
     };
   },
 );
@@ -408,12 +570,13 @@ server.registerTool(
   async ({ skillName, cwd, targets, scopes }) => {
     const sourceDir = resolveSkillDir(skillName);
     if (!sourceDir) {
-      return { content: [{ type: 'text', text: BAD_SKILL_NAME_MSG }], isError: true };
+      return { content: [{ type: 'text', text: BAD_SKILL_NAME_MSG }], isError: true, structuredContent: { results: [] } };
     }
     if (!fs.existsSync(path.join(sourceDir, 'SKILL.md'))) {
       return {
         content: [{ type: 'text', text: `No SKILL.md found at ${sourceDir}. Run pull_skill first.` }],
         isError: true,
+        structuredContent: { results: [] },
       };
     }
     let agents = detectAgents(cwd || process.cwd());
@@ -459,13 +622,15 @@ server.registerTool(
   },
   async ({ skillName, cwd, targets, scopes, keepInLibrary }) => {
     const sourceDir = resolveSkillDir(skillName);
+    const emptyRemoval = { undeployed: [], libraryRemoved: false, libraryPath: sourceDir || '' };
     if (!sourceDir) {
-      return { content: [{ type: 'text', text: BAD_SKILL_NAME_MSG }], isError: true };
+      return { content: [{ type: 'text', text: BAD_SKILL_NAME_MSG }], isError: true, structuredContent: emptyRemoval };
     }
     if (!fs.existsSync(sourceDir)) {
       return {
         content: [{ type: 'text', text: `No skill folder found at ${sourceDir} — nothing to remove.` }],
         isError: true,
+        structuredContent: emptyRemoval,
       };
     }
     const allAgents = detectAgents(cwd || process.cwd());
@@ -540,8 +705,22 @@ const BENCHMARK_RESULT_SHAPE = {
     consistent: z.boolean(),
     notes: z.string(),
   }),
-  edgeCase: z.object({ score: z.number().min(0).max(20), notes: z.string() }),
+  edgeCase: z.object({
+    score: z.number().min(0).max(20),
+    notes: z.string(),
+    adversarialConcern: z.boolean().optional().describe('true if the skill\'s own instructions could plausibly steer a naive agent into exfiltrating or destroying data outside its declared scope'),
+  }),
   scope: z.object({ score: z.number().min(0).max(20), notes: z.string() }),
+  dynamicCheck: z
+    .object({
+      ran: z.boolean(),
+      attemptedActions: z.array(z.string()),
+      notes: z.string(),
+    })
+    .optional()
+    .describe(
+      'OPTIONAL, advisory only — a real fresh session run in a throwaway scratch directory, instructed to report (not execute) any destructive/network action the skill calls for. Not part of the pass/fail gate: this project has no OS-level sandbox, so neither a clean result nor the session honoring the stop-instruction is a hard guarantee.',
+    ),
   score: z.number().min(0).max(100),
   summary: z.string(),
   weakLayers: z.array(z.string()).optional(),
@@ -660,20 +839,15 @@ server.registerTool(
   'push_skill',
   {
     description:
-      'Validate (fail-closed — refuses if invalid, no GitHub calls made) then push a local skill folder to a GitHub repo as ONE atomic commit (Git Data API: blob per file -> tree -> commit -> ref update), so a skill created locally on some agent can be published back to the shared library. Writes a per-skill .meta.json (uploadedBy/uploadedAt/updatedBy/updatedAt) in the same commit. NEVER pushes directly to the repo\'s default branch (main/master) — it always targets a feature branch (auto-named "skill/<skillName>" if you don\'t pass one), creating that branch from the current default-branch head if it doesn\'t exist yet, matching this project\'s own "never push to main without confirmation, default to a feature branch + PR" convention. The recommended full workflow for the calling agent: (1) call this tool to push to the feature branch, (2) call search_remote_skills/pull_skill with ref=<that branch> to pull it back down and verify it round-tripped correctly, (3) if that looks right, open a PR (e.g. via `gh pr create --base <default branch> --head <feature branch>`) for a human reviewer to check and merge — do not merge it yourself. IMPORTANT: ask the user for their name/email/GitHub username (the `identity` field) BEFORE calling this tool — do not guess or reuse a value from earlier context. The tool independently checks that identity against the account `gh` is logged in as, and refuses on a mismatch unless confirmMismatch is explicitly set. Needs the GitHub CLI (`gh`) installed and logged in (`gh auth login`) on this machine, with write access to the target repo — ask a repo admin to add you as a collaborator if you don\'t have it.',
+      'Validate (fail-closed — refuses if invalid, no GitHub calls made) then publish a local skill folder to the shared GitHub library through the standard outside-contributor flow: FORK the upstream repo under your own account, commit the skill to a branch IN YOUR FORK as ONE atomic commit (Git Data API: blob per file -> tree -> commit -> ref update), and open a PULL REQUEST from that fork branch back to upstream. The upstream repo is treated as READ-ONLY throughout — this tool never creates a branch, commit or ref there, so it works even though you are not a collaborator on it. Writes a per-skill .meta.json (uploadedBy/uploadedAt/updatedBy/updatedAt) in the same commit. The fork branch is auto-named "skill/<skillName>" (one branch per skill, so several skills can have independent PRs open at once); on a repeat push of the same skill the existing open PR is REUSED — a new commit is added to it rather than opening a duplicate PR. A human reviewer merges the PR; this tool never merges. IMPORTANT: ask the user for their name/email/GitHub username (the `identity` field) BEFORE calling this tool — do not guess or reuse a value from earlier context. The tool independently checks that identity against the account `gh` is logged in as, and refuses on a mismatch unless confirmMismatch is explicitly set. Needs the GitHub CLI (`gh`) installed and logged in (`gh auth login`) on this machine — read access to upstream is enough, no collaborator rights required.',
     inputSchema: {
       skillPath: z.string().describe('Absolute local folder path to the skill to push (must pass the same checks as validate_skill; this tool refuses to push otherwise)'),
-      owner: z.string(),
-      repo: z.string(),
+      owner: z.string().describe('Owner of the UPSTREAM library repo (read-only — never written to). Your fork is found/created automatically under the account `gh` is logged in as.'),
+      repo: z.string().describe('Name of the UPSTREAM library repo. Your fork keeps the same name.'),
       branch: z
         .string()
         .optional()
-        .describe('Feature branch to push to (default: auto-generated "skill/<skillName>"). Created from the default branch\'s current head if it doesn\'t exist yet. Never the repo\'s actual default branch unless allowDirectToDefaultBranch is also set.'),
-      allowDirectToDefaultBranch: z
-        .boolean()
-        .optional()
-        .default(false)
-        .describe('Set true ONLY if the user has explicitly asked for a direct push to the repo\'s default branch, bypassing the feature-branch+PR workflow. Leave false/omitted otherwise — this is a deliberate, rarely-needed override.'),
+        .describe('Branch name to use INSIDE YOUR FORK (default: auto-generated "skill/<skillName>"). Created from the upstream default branch\'s current head if it doesn\'t exist yet. Never touches any branch in the upstream repo.'),
       identity: z
         .string()
         .describe(
@@ -694,11 +868,17 @@ server.registerTool(
         ),
     },
     outputSchema: {
-      status: z.enum(['pushed', 'validation-failed', 'benchmark-too-low', 'secrets-detected', 'identity-mismatch', 'conflict']),
+      status: z.enum(['pushed', 'validation-failed', 'benchmark-too-low', 'secrets-detected', 'dangerous-instructions-detected', 'identity-mismatch', 'conflict', 'fork-name-conflict']),
       skillName: z.string().nullable(),
       isUpdate: z.boolean().optional(),
       commitSha: z.string().optional(),
       commitUrl: z.string().optional(),
+      forkFullName: z.string().optional().describe('The fork the commit actually landed in, e.g. "yourname/SKILL-LIB"'),
+      forkBranch: z.string().optional().describe('Branch inside the fork that now holds the skill'),
+      forkCreated: z.boolean().optional().describe('True when this call had to create the fork (first ever push)'),
+      pullRequestUrl: z.string().optional(),
+      pullRequestNumber: z.number().optional(),
+      pullRequestAction: z.enum(['created', 'updated']).optional().describe('"updated" means a commit was added to a PR that was already open for this skill'),
       filesPushed: z.array(z.string()),
       meta: z
         .object({
@@ -713,7 +893,7 @@ server.registerTool(
       warnings: z.array(z.string()),
     },
   },
-  async ({ skillPath, owner, repo, branch, allowDirectToDefaultBranch, identity, confirmMismatch, commitMessage, benchmark }) => {
+  async ({ skillPath, owner, repo, branch, identity, confirmMismatch, commitMessage, benchmark }) => {
     const warnings = [];
 
     // 1. Validate first — fail closed, zero GitHub calls if invalid.
@@ -807,29 +987,41 @@ server.registerTool(
       };
     }
 
-    await ensureGhReady();
-    const defaultBranch = await getDefaultBranch(owner, repo);
-    const resolvedBranch = branch || `skill/${skillName}`;
-
-    // Never push straight to the default branch unless explicitly allowed —
-    // matches this project's own "never push to main without confirmation"
-    // convention. A feature branch is created (from the current default
-    // branch head) if it doesn't already exist.
-    if (resolvedBranch === defaultBranch && !allowDirectToDefaultBranch) {
+    // 1c. Dangerous-instruction sweep — also before any GitHub call, same
+    // fail-closed posture and no override flag as the credential sweep
+    // above. Grounded in SkillSafetyBench (paper/2605.12015.pdf): a skill's
+    // own Markdown body can be adversarial content even when the person
+    // pushing it has no ill intent — this catches high-confidence
+    // theft/destruction signatures; Layer 4's read-and-judge (advisory
+    // only) catches subtler, indirect ones this narrow regex scan misses.
+    const skillMdContent = fs.readFileSync(path.join(skillPath, 'SKILL.md'), 'utf8');
+    const dangerousFindings = findDangerousInstructions(skillMdContent);
+    if (dangerousFindings.length) {
+      const listing = dangerousFindings.map((f) => `- ${f}`).join('\n');
       return {
         content: [
           {
             type: 'text',
             text:
-              `Refusing to push directly to "${defaultBranch}" (the repo's default branch). Use a feature ` +
-              `branch instead (e.g. "skill/${skillName}"), or pass allowDirectToDefaultBranch:true if the ` +
-              `user explicitly asked for a direct push.`,
+              `Refusing to push — SKILL.md contains instruction pattern(s) consistent with data theft or destruction:\n\n${listing}\n\n` +
+              'If this is a legitimate destructive/network operation, scope it explicitly (a named relative path, not an unscoped target like ~ or /) ' +
+              'and make the intent and blast radius explicit in the skill text, then push again. There is no override flag.',
           },
         ],
         isError: true,
-        structuredContent: { status: 'validation-failed', skillName, filesPushed: [], issues: [], warnings: [] },
+        structuredContent: {
+          status: 'dangerous-instructions-detected',
+          skillName,
+          filesPushed: [],
+          issues: dangerousFindings,
+          warnings: [],
+        },
       };
     }
+
+    await ensureGhReady();
+    const defaultBranch = await getDefaultBranch(owner, repo);
+    const resolvedBranch = branch || `skill/${skillName}`;
 
     // 2. Identity cross-check — before any write call.
     const user = await getAuthenticatedUser();
@@ -859,17 +1051,47 @@ server.registerTool(
     }
     const verifiedAgainstGhAccount = matched;
 
-    // 3. Read current branch state — creating the feature branch (from the
-    // default branch's current head) if it doesn't exist yet.
-    let baseSha = await tryGetBranchHead(owner, repo, resolvedBranch);
-    let branchCreated = false;
+    // 3. Resolve the fork. Upstream is read-only from here on — every write
+    // below targets forkOwner/repo, never owner/repo.
+    const forkOwner = user.login;
+    let forkCreated = false;
+    const existingFork = await getFork(forkOwner, owner, repo);
+    if (existingFork?.mismatch) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text:
+              `Refusing to push — "${existingFork.mismatch}" already exists on your account but is NOT a fork of ` +
+              `${owner}/${repo} (it's an unrelated repo that happens to share the name). Pushing into it would ` +
+              `commit this skill into the wrong project. Rename or delete that repo, then run this push again.`,
+          },
+        ],
+        isError: true,
+        structuredContent: { status: 'fork-name-conflict', skillName, filesPushed: [], issues: [], warnings: [] },
+      };
+    }
+    if (!existingFork) {
+      await createFork(owner, repo);
+      forkCreated = true;
+      warnings.push(`You had no fork of ${owner}/${repo} — created ${forkOwner}/${repo} for this push.`);
+    }
+    const forkFullName = `${forkOwner}/${repo}`;
+
+    // 4. Resolve the branch INSIDE THE FORK. A branch that already exists is
+    // built on top of (that's what adds a commit to the PR already open for
+    // this skill); a new one starts from upstream's current default-branch
+    // head, so the PR diff stays limited to this skill even if the fork's own
+    // default branch has gone stale.
+    let baseSha = await tryGetBranchHead(forkOwner, repo, resolvedBranch);
     if (baseSha === null) {
       baseSha = await getBranchHead(owner, repo, defaultBranch);
-      await createBranch(owner, repo, resolvedBranch, baseSha);
-      branchCreated = true;
-      warnings.push(`Branch "${resolvedBranch}" did not exist — created it from "${defaultBranch}"'s current head.`);
+      await createBranch(forkOwner, repo, resolvedBranch, baseSha);
+      warnings.push(
+        `Branch "${resolvedBranch}" did not exist in ${forkFullName} — created it from ${owner}/${repo}@${defaultBranch}'s current head.`,
+      );
     }
-    const { sha: baseTreeSha, tree, truncated } = await getRecursiveTree(owner, repo, baseSha);
+    const { sha: baseTreeSha, tree, truncated } = await getRecursiveTree(forkOwner, repo, baseSha);
     if (truncated) warnings.push('GitHub truncated the repo tree response (repo too large for one call) — existing-skill detection may be incomplete');
 
     const existingEntries = tree.filter((e) => e.path === skillName || e.path.startsWith(`${skillName}/`));
@@ -883,7 +1105,7 @@ server.registerTool(
       const metaEntry = existingEntries.find((e) => e.path === `${skillName}/.meta.json`);
       if (metaEntry) {
         try {
-          const existingMetaText = await getBlobText(owner, repo, metaEntry.sha);
+          const existingMetaText = await getBlobText(forkOwner, repo, metaEntry.sha);
           const existingMeta = JSON.parse(existingMetaText);
           if (existingMeta.uploadedBy) uploadedBy = existingMeta.uploadedBy;
           if (existingMeta.uploadedAt) uploadedAt = existingMeta.uploadedAt;
@@ -896,30 +1118,31 @@ server.registerTool(
     }
     const meta = { uploadedBy, uploadedAt, updatedBy: identity, updatedAt: nowIso, verifiedAgainstGhAccount };
 
-    // 5. Blob every real file (listed in step 1b), plus the synthesized .meta.json.
+    // 6. Blob every real file (listed in step 1b), plus the synthesized
+    // .meta.json — all into the fork.
     const entries = [];
     for (const f of files) {
       const buf = fs.readFileSync(f.absolutePath);
-      const sha = await createBlob(owner, repo, buf.toString('base64'));
+      const sha = await createBlob(forkOwner, repo, buf.toString('base64'));
       entries.push({ path: `${skillName}/${f.relativePath}`, mode: '100644', type: 'blob', sha });
     }
-    const metaSha = await createBlob(owner, repo, Buffer.from(JSON.stringify(meta, null, 2)).toString('base64'));
+    const metaSha = await createBlob(forkOwner, repo, Buffer.from(JSON.stringify(meta, null, 2)).toString('base64'));
     entries.push({ path: `${skillName}/.meta.json`, mode: '100644', type: 'blob', sha: metaSha });
 
-    // 6. Tree -> commit -> (re-check) -> ref update.
-    const newTreeSha = await createTree(owner, repo, baseTreeSha, entries);
+    // 7. Tree -> commit -> (re-check) -> ref update, still all in the fork.
+    const newTreeSha = await createTree(forkOwner, repo, baseTreeSha, entries);
     const message = commitMessage || `feat(library): ${isUpdate ? 'Update' : 'Add'} ${skillName} skill`;
-    const newCommitSha = await createCommit(owner, repo, message, newTreeSha, baseSha);
+    const newCommitSha = await createCommit(forkOwner, repo, message, newTreeSha, baseSha);
 
-    const currentSha = await getBranchHead(owner, repo, resolvedBranch);
+    const currentSha = await getBranchHead(forkOwner, repo, resolvedBranch);
     if (currentSha !== baseSha) {
       return {
         content: [
           {
             type: 'text',
             text:
-              `Refusing to update the ref — ${owner}/${repo}@${resolvedBranch} moved from ${baseSha} to ${currentSha} ` +
-              `while this push was in progress (someone else pushed in the meantime). Nothing on ${resolvedBranch} was ` +
+              `Refusing to update the ref — ${forkFullName}@${resolvedBranch} moved from ${baseSha} to ${currentSha} ` +
+              `while this push was in progress (something else pushed to your fork in the meantime). Nothing on ${resolvedBranch} was ` +
               `changed — the commit/blobs this push created are unreferenced and harmless. Retry the whole call.`,
           },
         ],
@@ -936,7 +1159,7 @@ server.registerTool(
     }
 
     try {
-      await updateRef(owner, repo, resolvedBranch, newCommitSha);
+      await updateRef(forkOwner, repo, resolvedBranch, newCommitSha);
     } catch (err) {
       return {
         content: [
@@ -950,24 +1173,67 @@ server.registerTool(
       };
     }
 
+    // 8. Open the PR back to upstream — or, if one is already open for this
+    // exact fork branch, leave it alone: the commit above has already landed
+    // on the branch the PR tracks, so GitHub shows it in that same PR. This is
+    // what keeps a re-pushed skill to one PR instead of a pile of duplicates.
+    //
+    // The commit is already safely on the fork at this point, so a failure
+    // here is reported as a warning rather than an error — losing the PR link
+    // is recoverable (open it by hand), losing the commit is not.
+    let pull = null;
+    let pullRequestAction;
+    try {
+      pull = await findOpenPull(owner, repo, forkOwner, resolvedBranch);
+      if (pull) {
+        pullRequestAction = 'updated';
+      } else {
+        pull = await createPull(owner, repo, {
+          title: message,
+          head: `${forkOwner}:${resolvedBranch}`,
+          base: defaultBranch,
+          body:
+            `${isUpdate ? 'Updates' : 'Adds'} the \`${skillName}\` skill.\n\n` +
+            `- Benchmark score: ${benchmark.score}/100 (threshold ${MIN_BENCHMARK_SCORE})\n` +
+            `- Submitted by: ${identity}${verifiedAgainstGhAccount ? '' : ' (identity NOT verified against the pushing GitHub account)'}\n` +
+            `- Files: ${entries.length}\n\n` +
+            `Opened automatically by \`push_skill\`. Please review before merging.`,
+        });
+        pullRequestAction = 'created';
+      }
+    } catch (err) {
+      warnings.push(
+        `Commit landed on ${forkFullName}@${resolvedBranch}, but the pull request step failed ` +
+          `(${String(err?.message || err)}). Open it by hand: ` +
+          `gh pr create --repo ${owner}/${repo} --base ${defaultBranch} --head ${forkOwner}:${resolvedBranch}`,
+      );
+    }
+
     const filesPushed = entries.map((e) => e.path);
     const listing = filesPushed.map((p) => `- ${p}`).join('\n');
-    const summary = `Pushed "${skillName}" to ${owner}/${repo}@${resolvedBranch} as commit ${newCommitSha} (${isUpdate ? 'updated' : 'added'}).`;
+    const summary =
+      `Pushed "${skillName}" to your fork ${forkFullName}@${resolvedBranch} as commit ${newCommitSha} ` +
+      `(${isUpdate ? 'updated' : 'added'}). ${owner}/${repo} itself was never written to.`;
+    const prText = pull
+      ? `\n\nPull request ${pullRequestAction === 'created' ? 'opened' : 'updated (commit added to the PR already open for this skill)'}: ` +
+        `#${pull.number} ${pull.url}`
+      : '';
     const warnText = warnings.length ? `\n\nWarnings:\n${warnings.map((w) => `- ${w}`).join('\n')}` : '';
-    const nextSteps =
-      resolvedBranch === defaultBranch
-        ? ''
-        : `\n\nNext steps: (1) pull this back down from ref="${resolvedBranch}" to verify it round-tripped ` +
-          `correctly, (2) if that looks right, open a PR (e.g. \`gh pr create --base ${defaultBranch} --head ` +
-          `${resolvedBranch}\`) for a human reviewer to check and merge.`;
+    const nextSteps = pull
+      ? `\n\nNext step: a maintainer of ${owner}/${repo} reviews and merges PR #${pull.number}. Do not merge it yourself.`
+      : '';
     return {
-      content: [{ type: 'text', text: `${summary}\n\n${listing}${warnText}${nextSteps}` }],
+      content: [{ type: 'text', text: `${summary}\n\n${listing}${prText}${warnText}${nextSteps}` }],
       structuredContent: {
         status: 'pushed',
         skillName,
         isUpdate,
         commitSha: newCommitSha,
-        commitUrl: `https://github.com/${owner}/${repo}/commit/${newCommitSha}`,
+        commitUrl: `https://github.com/${forkFullName}/commit/${newCommitSha}`,
+        forkFullName,
+        forkBranch: resolvedBranch,
+        forkCreated,
+        ...(pull ? { pullRequestUrl: pull.url, pullRequestNumber: pull.number, pullRequestAction } : {}),
         filesPushed,
         meta,
         issues: [],
