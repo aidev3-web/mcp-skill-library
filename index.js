@@ -808,7 +808,7 @@ server.registerTool(
   'validate_skill',
   {
     description:
-      'Check a local skill folder against the same 4 rules SKILL-LIB\'s CI lint enforces (frontmatter parses, only name/description keys allowed, name format/length/folder-match, non-empty description). No network calls — safe to call repeatedly. This is a fast local approximation, not a substitute for the real CI lint job: the frontmatter reader used here is not a full YAML parser.',
+      'Check a local skill folder: frontmatter parses, `name` is present and matches the folder name (lowercase letters/digits/hyphens, <=64 chars), and `description` is present and non-empty. Those two keys are the MINIMUM a skill must carry — extra frontmatter keys (`allowed-tools`, `model`, `license`, `metadata`, ...) are allowed and reported as a WARNING, not an error, because most agents ignore unknown keys and real-world skills routinely carry them. That warning still flags that SKILL-LIB\'s CI lint has NOT been relaxed and may reject extra keys at PR time. No network calls — safe to call repeatedly. A fast local approximation, not a substitute for the real CI lint job: the frontmatter reader used here is not a full YAML parser.',
     inputSchema: {
       skillPath: z
         .string()
@@ -818,19 +818,23 @@ server.registerTool(
       skillPath: z.string(),
       name: z.string().nullable(),
       valid: z.boolean(),
-      issues: z.array(z.string()),
+      issues: z.array(z.string()).describe('Blocking problems — the skill is invalid until every one is fixed.'),
+      warnings: z.array(z.string()).describe('Non-blocking notes. The skill is valid despite these, but they may still matter elsewhere — notably, SKILL-LIB CI still rejects extra frontmatter keys.'),
     },
   },
   async ({ skillPath }) => {
     if (!fs.existsSync(skillPath) || !fs.statSync(skillPath).isDirectory()) {
       return { content: [{ type: 'text', text: `Not a directory: ${skillPath}` }], isError: true };
     }
-    const { valid, issues, name } = validateSkillFolder(skillPath);
+    const { valid, issues, warnings, name } = validateSkillFolder(skillPath);
     const listing = issues.length ? issues.map((i) => `- ${i}`).join('\n') : 'No issues found.';
+    const warnText = warnings.length
+      ? `\n\nWarnings (do not block — the skill is valid):\n${warnings.map((w) => `- ${w}`).join('\n')}`
+      : '';
     const summary = `Skill "${name || path.basename(skillPath)}" at ${skillPath}: ${valid ? 'VALID' : `INVALID (${issues.length} issue(s))`}.`;
     return {
-      content: [{ type: 'text', text: `${summary}\n\n${listing}` }],
-      structuredContent: { skillPath, name, valid, issues },
+      content: [{ type: 'text', text: `${summary}\n\n${listing}${warnText}` }],
+      structuredContent: { skillPath, name, valid, issues, warnings },
     };
   },
 );
@@ -913,6 +917,11 @@ server.registerTool(
       };
     }
     const skillName = v.name;
+    // Validation passed, but non-blocking notes still reach the caller — the
+    // one that matters here is extra frontmatter keys, which this tool allows
+    // and SKILL-LIB's CI does not. Swallowing it would let a push succeed and
+    // then fail CI on the PR with no earlier hint.
+    warnings.push(...v.warnings);
 
     // 1a. Benchmark gate — also before any GitHub call. Fails closed on
     // Layer 0, on any Layer 1-3 evidence field showing a failed real test
