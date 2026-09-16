@@ -127,6 +127,33 @@
   .flow-edge.dashed{stroke-dasharray:4 4}
   .flow-note{font-size:.78rem;color:var(--sub);margin-top:8px}
 
+  .flow-node.gate rect{stroke:var(--orange);stroke-width:2;stroke-dasharray:6 4}
+  .flow-node.refuse rect{fill:var(--red-soft,#fbe4de);stroke:var(--red,#c85c4a);stroke-width:1.6}
+  .flow-node.refuse text{fill:var(--red,#c85c4a);font-weight:700}
+  .flow-node.pass rect{fill:var(--green-soft);stroke:var(--green);stroke-width:1.6}
+  .flow-node.pass text{fill:var(--green);font-weight:700}
+  .flow-edge.refuse-edge{stroke:var(--red,#c85c4a);stroke-dasharray:3 3;opacity:.85}
+  .td-mini{margin:2px 0 14px}
+  .td-mini .flow-svg-wrap{background:radial-gradient(ellipse at 20% 0%,#fffdf9,var(--cream) 70%);border:1px solid var(--dash);border-radius:16px;padding:14px;box-shadow:inset 0 1px 0 rgba(255,255,255,.6);overflow-x:auto}
+  .td-mini .flow-svg-wrap svg{min-width:340px;height:auto;display:block}
+  .td-mini .flow-node rect{rx:14px;fill:var(--chip);stroke:var(--orange-soft);stroke-width:1.2;filter:drop-shadow(0 3px 6px rgba(180,110,60,.16))}
+  .td-mini .flow-node text{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:11px;font-weight:700;letter-spacing:-.01em}
+  .td-mini .flow-node.gate rect{fill:#fffaf2;stroke:var(--orange);stroke-width:1.6;stroke-dasharray:1 5;stroke-linecap:round}
+  .td-mini .flow-node.refuse rect{rx:18px;fill:var(--red-soft,#fbe4de);stroke:var(--red,#c85c4a);stroke-width:1.3;filter:drop-shadow(0 3px 7px rgba(200,92,74,.2))}
+  .td-mini .flow-node.pass rect{rx:18px;fill:var(--green-soft);stroke:var(--green);stroke-width:1.3;filter:drop-shadow(0 3px 7px rgba(90,143,107,.2))}
+  .td-mini .flow-node.optional rect{rx:14px;fill:rgba(255,255,255,.5);stroke-dasharray:1 5;stroke-linecap:round;filter:none}
+  .td-mini .flow-edge{stroke-width:1.6;stroke-linecap:round}
+  .td-mini .flow-edge.refuse-edge{stroke-width:1.5;stroke-linecap:round}
+
+  .flow-legend{display:flex;flex-wrap:wrap;gap:8px 18px;margin:14px 0 18px;padding:10px 14px;background:var(--chip);border:1px solid var(--dash);border-radius:10px;font-size:.74rem;color:var(--sub)}
+  .flow-legend .lg-item{display:flex;align-items:center;gap:6px}
+  .flow-legend .lg-swatch{width:16px;height:12px;border-radius:4px;flex:none}
+  .flow-legend .lg-step{background:var(--chip);border:1px solid var(--orange-soft)}
+  .flow-legend .lg-gate{background:#fffaf2;border:1.6px dashed var(--orange)}
+  .flow-legend .lg-refuse{background:var(--red-soft,#fbe4de);border:1px solid var(--red,#c85c4a)}
+  .flow-legend .lg-pass{background:var(--green-soft);border:1px solid var(--green)}
+  .flow-legend .lg-optional{background:rgba(255,255,255,.6);border:1.6px dashed var(--dash)}
+
   .layer-row{border:1px solid var(--orange-soft);border-radius:10px;padding:12px 14px;margin-bottom:10px;scroll-margin-top:68px}
   .layer-row code{font-family:ui-monospace,monospace;color:var(--orange);font-weight:700}
   .layer-row p{margin:6px 0 0;font-size:.82rem}
@@ -150,6 +177,26 @@
   .prompt-howto ol{margin:0;padding-left:18px;font-size:.8rem}
   .prompt-howto li{margin:4px 0}
   .prompt-howto .pill{display:inline-block;background:var(--card);border:1px solid var(--orange-soft);border-radius:6px;padding:1px 6px;font-family:ui-monospace,monospace;font-size:.85em}
+
+  .tool-detail{margin-bottom:12px;border:1px solid var(--orange-soft);border-radius:12px;background:var(--card);scroll-margin-top:68px}
+  .tool-detail summary{cursor:pointer;padding:13px 16px;list-style:none;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .tool-detail summary::-webkit-details-marker{display:none}
+  .tool-detail summary:before{content:"▸";display:inline-block;color:var(--orange);font-size:.8rem;flex:none}
+  .tool-detail[open] summary:before{content:"▾"}
+  .tool-detail summary code{font-family:ui-monospace,monospace;color:var(--orange);font-weight:700;font-size:.88rem}
+  .tool-detail summary .td-desc{color:var(--sub);font-size:.8rem}
+  .tool-detail summary .gate-badge{margin-left:auto;flex:none;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em;padding:2px 9px;border-radius:999px;background:var(--red-soft,#fbe4de);color:var(--red,#c85c4a);border:1px solid var(--red,#c85c4a)}
+  .tool-detail-body{padding:0 16px 16px 40px}
+  .step-list{margin:0;padding:0;list-style:none;counter-reset:tstep}
+  .step-list li{counter-increment:tstep;position:relative;padding:2px 0 10px 26px;font-size:.83rem;border-left:2px solid var(--dash);margin-left:9px}
+  .step-list li:last-child{border-left-color:transparent;padding-bottom:0}
+  .step-list li:before{content:counter(tstep);position:absolute;left:-11px;top:0;width:20px;height:20px;border-radius:50%;background:var(--orange);color:#fff;font-size:.68rem;font-weight:800;display:flex;align-items:center;justify-content:center}
+  .step-list code{background:var(--chip);border-radius:4px;padding:0 4px;font-family:ui-monospace,monospace;font-size:.92em}
+  .step-list .refuse{color:var(--red,#c85c4a)}
+  .step-list .ok{color:var(--green,#5a8f6b)}
+  .td-io{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 12px;font-size:.76rem}
+  .td-io span{background:var(--chip);border:1px solid var(--dash);border-radius:6px;padding:3px 9px}
+  .td-io b{color:var(--orange);font-family:ui-monospace,monospace;font-weight:700}
 
   .init-prompt{margin-top:12px;border:2px dashed var(--dash);border-radius:12px;background:var(--cream);scroll-margin-top:68px}
   .init-prompt summary{cursor:pointer;padding:12px 16px;font-weight:700;color:var(--orange);font-size:.86rem;list-style:none}
@@ -197,6 +244,7 @@
           <div class="nav-group-title"><span data-vi>Tool</span><span data-en>Tools</span></div>
           <ul>
             <li><a href="#tools" data-nav-link="tools"><span data-vi>Danh sách tool</span><span data-en>List tools</span></a></li>
+            <li><a href="#tool-internals" data-nav-link="tool-internals"><span data-vi>Bên trong từng tool</span><span data-en>Inside each tool</span></a></li>
             <li><a href="#workflow" data-nav-link="workflow"><span data-vi>Sơ đồ quy trình</span><span data-en>Workflow diagram</span></a></li>
           </ul>
         </div>
@@ -216,7 +264,7 @@
       <section id="overview" data-nav="overview">
         <div class="breadcrumb"><span data-vi>Bắt đầu</span><span data-en>Getting started</span></div>
         <h2><span data-vi>Tổng quan</span><span data-en>Overview</span></h2>
-        <p class="lead"><span data-vi>mcp-skill-lib là cầu nối skill giữa mọi agent MCP trên máy bạn (Claude Code, Codex, OpenCode, Copilot...). Bạn không gọi tool trực tiếp — chỉ cần nói với agent bằng lời thường, nó tự chọn đúng tool trong số 9 tool phía dưới.</span><span data-en>mcp-skill-lib is the knowledge bridge between every MCP agent on your machine (Claude Code, Codex, OpenCode, Copilot...). You never call a tool directly — just tell your agent in plain language, and it picks the right one of the 9 tools below.</span></p>
+        <p class="lead"><span data-vi>mcp-skill-lib là cầu nối skill giữa mọi agent MCP trên máy bạn (Claude Code, Codex, OpenCode, Copilot...). Bạn không gọi tool trực tiếp — chỉ cần nói với agent bằng lời thường, nó tự chọn đúng tool trong số 10 tool phía dưới.</span><span data-en>mcp-skill-lib is the knowledge bridge between every MCP agent on your machine (Claude Code, Codex, OpenCode, Copilot...). You never call a tool directly — just tell your agent in plain language, and it picks the right one of the 10 tools below.</span></p>
 
         <h3 id="key-concepts"><span data-vi>Khái niệm chính</span><span data-en>Key concepts</span></h3>
         <ul class="concepts">
@@ -238,8 +286,8 @@
             <ul><li><span data-vi>Restart agent 1 lần sau khi đăng ký</span><span data-en>Restarted the agent once after registering</span></li></ul>
           </div>
           <div class="panel">
-            <h4><span data-vi>3. Có quyền collaborator</span><span data-en>3. Collaborator access</span></h4>
-            <ul><li><span data-vi>Repo private cần được thêm làm collaborator</span><span data-en>Private repos require being added as a collaborator</span></li></ul>
+            <h4><span data-vi>3. Quyền đọc repo</span><span data-en>3. Read access</span></h4>
+            <ul><li><span data-vi>Repo private cần được thêm collaborator để <b>đọc</b>. Để <b>đóng góp</b> skill thì không cần quyền ghi — <code>push_skill</code> fork rồi mở PR</span><span data-en>A private repo needs collaborator access to <b>read</b>. <b>Contributing</b> a skill needs no write access — <code>push_skill</code> forks and opens a PR</span></li></ul>
           </div>
         </div>
 
@@ -367,29 +415,347 @@
 
       <section id="tools" data-nav="tools">
         <div class="breadcrumb"><span data-vi>Tool</span><span data-en>Tools</span></div>
-        <h2><span data-vi>9 tool đứng sau (bạn không cần gọi tay)</span><span data-en>The 9 tools behind it (you never call these by hand)</span></h2>
+        <h2><span data-vi>10 tool đứng sau (bạn không cần gọi tay)</span><span data-en>The 10 tools behind it (you never call these by hand)</span></h2>
         <div class="toollist">
           <div class="tool-chip"><code>search_remote_skills</code><span data-vi>Tìm trong 1 repo đã biết</span><span data-en>Search one known repo</span></div>
           <div class="tool-chip"><code>search_all_sources</code><span data-vi>Tìm trên mọi repo trong sources.json</span><span data-en>Search every repo in sources.json</span></div>
+          <div class="tool-chip"><code>find_skills</code><span data-vi>Tìm theo ngữ nghĩa trên toàn hệ sinh thái qua skills.sh</span><span data-en>Semantic search across the whole ecosystem via skills.sh</span></div>
           <div class="tool-chip"><code>pull_skill</code><span data-vi>Kéo skill về thư viện local</span><span data-en>Fetch a skill into the local library</span></div>
           <div class="tool-chip"><code>detect_agents</code><span data-vi>Dò agent nào có mặt trên máy</span><span data-en>Detect which agents are present</span></div>
           <div class="tool-chip"><code>deploy_skill</code><span data-vi>Symlink skill vào từng agent</span><span data-en>Symlink the skill into each agent</span></div>
           <div class="tool-chip"><code>remove_skill</code><span data-vi>Gỡ symlink &amp; dọn thư viện</span><span data-en>Undo the deploy &amp; clean up the library</span></div>
           <div class="tool-chip"><code>validate_skill</code><span data-vi>Kiểm tra định dạng, không cần mạng</span><span data-en>Check the format, no network needed</span></div>
           <div class="tool-chip"><code>benchmark_skill</code><span data-vi>Chấm 6 lớp chất lượng — Trigger/Kết quả/Ổn định cần bằng chứng thật từ session mới, không đoán điểm</span><span data-en>Scores 6 quality layers — Trigger/Outcome/Stability need real fresh-session evidence, no guessed scores</span></div>
-          <div class="tool-chip"><code>push_skill</code><span data-vi>Đẩy skill lên GitHub qua feature branch</span><span data-en>Push the skill to GitHub via a feature branch</span></div>
+          <div class="tool-chip"><code>push_skill</code><span data-vi>Fork repo, commit vào fork, mở PR (repo gốc chỉ đọc)</span><span data-en>Fork, commit to the fork, open a PR (upstream stays read-only)</span></div>
         </div>
+      </section>
+
+      <section id="tool-internals" data-nav="tool-internals">
+        <div class="breadcrumb"><span data-vi>Tool</span><span data-en>Tools</span></div>
+        <h2><span data-vi>Bên trong từng tool hoạt động ra sao</span><span data-en>What happens inside each tool</span></h2>
+        <p class="lead"><span data-vi>Không phải hộp đen — dưới đây là đúng các bước mỗi tool chạy thật bên trong (lấy trực tiếp từ <code>index.js</code>), bấm vào tên tool để xổ ra.</span><span data-en>Not a black box — below is exactly what each tool does internally, step by step (taken directly from <code>index.js</code>). Click a tool name to expand.</span></p>
+
+        <div class="flow-legend">
+          <div class="lg-item"><span class="lg-swatch lg-step"></span><span data-vi>Bước xử lý</span><span data-en>Processing step</span></div>
+          <div class="lg-item"><span class="lg-swatch lg-gate"></span><span data-vi>Điểm kiểm tra (có thể rẽ)</span><span data-en>Check point (can branch)</span></div>
+          <div class="lg-item"><span class="lg-swatch lg-refuse"></span><span data-vi>Từ chối / dừng lại</span><span data-en>Refused / stopped</span></div>
+          <div class="lg-item"><span class="lg-swatch lg-pass"></span><span data-vi>Hoàn tất</span><span data-en>Completed</span></div>
+          <div class="lg-item"><span class="lg-swatch lg-optional"></span><span data-vi>Xảy ra ngoài tool này</span><span data-en>Happens outside this tool</span></div>
+        </div>
+
+        <details class="tool-detail">
+          <summary><code>search_remote_skills</code><span class="td-desc" data-vi>Tìm trong 1 repo đã biết</span><span class="td-desc" data-en>Search one known repo</span></summary>
+          <div class="tool-detail-body">
+            <div class="td-io"><span><b data-vi>Vào</b><b data-en>In</b>: owner, repo, ref?, query?, limit, cursor?</span><span><b data-vi>Ra</b><b data-en>Out</b>: items[], totalMatched, nextCursor</span></div>
+            <div class="td-mini"><div class="flow-svg-wrap"><svg viewBox="0 0 700 66" role="img" aria-label="search_remote_skills flow">
+              <defs><marker id="t1a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--sub)"/></marker></defs>
+              <path class="flow-edge" d="M160,33 L176,33" marker-end="url(#t1a)"/>
+              <path class="flow-edge" d="M336,33 L352,33" marker-end="url(#t1a)"/>
+              <path class="flow-edge" d="M512,33 L528,33" marker-end="url(#t1a)"/>
+              <g class="flow-node"><rect x="8" y="10" width="152" height="46" rx="10"/><text x="84" y="37" text-anchor="middle">load tree</text></g>
+              <g class="flow-node"><rect x="176" y="10" width="160" height="46" rx="10"/><text x="256" y="37" text-anchor="middle">filter SKILL.md</text></g>
+              <g class="flow-node"><rect x="352" y="10" width="160" height="46" rx="10"/><text x="432" y="37" text-anchor="middle">match query</text></g>
+              <g class="flow-node"><rect x="528" y="10" width="164" height="46" rx="10"/><text x="610" y="37" text-anchor="middle">page + frontmatter</text></g>
+            </svg></div></div>
+            <ol class="step-list">
+              <li><span data-vi>Lấy cây file của repo (qua <code>gh</code>) — nếu đã tải trong 5 phút gần đây thì dùng lại từ cache, không gọi mạng lại.</span><span data-en>Load the repo's file tree via <code>gh</code> — reused from a 5-minute in-memory cache if already fetched, no repeat network call.</span></li>
+              <li><span data-vi>Lọc ra mọi file <code>SKILL.md</code> trong cây đó (chính là danh sách skill).</span><span data-en>Filter that tree down to every <code>SKILL.md</code> blob (that's the skill list).</span></li>
+              <li><span data-vi>Nếu có <code>query</code>: giữ lại thư mục nào có đường dẫn chứa chuỗi đó (không phân biệt hoa/thường) — so khớp trên tên thư mục, chưa đọc nội dung file.</span><span data-en>If <code>query</code> is set: keep only folders whose path contains that substring (case-insensitive) — matched on the folder path, no file content read yet.</span></li>
+              <li><span data-vi>Cắt trang theo <code>limit</code>/<code>cursor</code>, rồi mới tải nội dung <code>SKILL.md</code> của đúng trang đó để lấy <code>name</code>/<code>description</code> từ frontmatter.</span><span data-en>Slice the page by <code>limit</code>/<code>cursor</code>, then fetch that page's <code>SKILL.md</code> content to read <code>name</code>/<code>description</code> from frontmatter.</span></li>
+              <li><span data-vi>Trả về danh sách kèm <code>nextCursor</code> nếu còn trang sau.</span><span data-en>Returns the list plus a <code>nextCursor</code> if more pages remain.</span></li>
+            </ol>
+          </div>
+        </details>
+
+        <details class="tool-detail">
+          <summary><code>search_all_sources</code><span class="td-desc" data-vi>Tìm trên mọi repo trong sources.json</span><span class="td-desc" data-en>Search every repo in sources.json</span></summary>
+          <div class="tool-detail-body">
+            <div class="td-io"><span><b data-vi>Vào</b><b data-en>In</b>: query?, limit</span><span><b data-vi>Ra</b><b data-en>Out</b>: items[] (kèm source), sourcesSearched[]</span></div>
+            <div class="td-mini"><div class="flow-svg-wrap"><svg viewBox="0 0 760 66" role="img" aria-label="search_all_sources flow">
+              <defs><marker id="t2a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--sub)"/></marker></defs>
+              <path class="flow-edge" d="M182,33 L198,33" marker-end="url(#t2a)"/>
+              <path class="flow-edge" d="M378,33 L394,33" marker-end="url(#t2a)"/>
+              <path class="flow-edge" d="M574,33 L590,33" marker-end="url(#t2a)"/>
+              <g class="flow-node"><rect x="8" y="10" width="174" height="46" rx="10"/><text x="95" y="30" text-anchor="middle" style="font-size:10px">load sources.json</text><text x="95" y="44" text-anchor="middle" style="font-size:10px">+ sources.local.json</text></g>
+              <g class="flow-node"><rect x="198" y="10" width="180" height="46" rx="10"/><text x="288" y="30" text-anchor="middle" style="font-size:10px">pass 1: tree+filter</text><text x="288" y="44" text-anchor="middle" style="font-size:10px">per repo</text></g>
+              <g class="flow-node"><rect x="394" y="10" width="180" height="46" rx="10"/><text x="484" y="30" text-anchor="middle" style="font-size:10px">pass 2: frontmatter</text><text x="484" y="44" text-anchor="middle" style="font-size:10px">page only</text></g>
+              <g class="flow-node"><rect x="590" y="10" width="162" height="46" rx="10"/><text x="671" y="37" text-anchor="middle">merge + tag</text></g>
+            </svg></div></div>
+            <ol class="step-list">
+              <li><span data-vi>Đọc danh sách repo từ <code>sources.json</code> (chung, sửa qua PR) + <code>sources.local.json</code> (riêng, để trong <code>SKILL_LIBRARY_PATH</code>, không commit).</span><span data-en>Reads the repo list from <code>sources.json</code> (shared, edited via PR) + <code>sources.local.json</code> (personal, lives in <code>SKILL_LIBRARY_PATH</code>, never committed).</span></li>
+              <li><span data-vi><b>Lượt 1:</b> chỉ tải cây file của từng repo, lọc theo <code>query</code> trên đường dẫn — repo nào lỗi thì ghi nhận lỗi và bỏ qua, không làm hỏng cả lượt tìm.</span><span data-en><b>Pass 1:</b> loads just each repo's tree, filters by <code>query</code> on the path — a repo that errors is recorded and skipped, not fatal to the whole search.</span></li>
+              <li><span data-vi><b>Lượt 2:</b> chỉ tải nội dung <code>SKILL.md</code> cho đúng số kết quả nằm trong <code>limit</code> — không tải tất cả rồi vứt, vì 1 lần tìm rỗng trên nhiều repo lớn có thể ra hàng trăm kết quả.</span><span data-en><b>Pass 2:</b> only fetches <code>SKILL.md</code> content for rows that made it inside <code>limit</code> — not fetch-everything-then-discard, since an empty query across a few big repos can be hundreds of matches.</span></li>
+              <li><span data-vi>Gộp kết quả từ mọi repo thành 1 danh sách, mỗi dòng có kèm repo nguồn.</span><span data-en>Merges results from every repo into one list, each row tagged with its source repo.</span></li>
+            </ol>
+          </div>
+        </details>
+
+        <details class="tool-detail">
+          <summary><code>find_skills</code><span class="td-desc" data-vi>Tìm theo ngữ nghĩa trên toàn hệ sinh thái</span><span class="td-desc" data-en>Semantic search across the whole ecosystem</span></summary>
+          <div class="tool-detail-body">
+            <div class="td-io"><span><b data-vi>Vào</b><b data-en>In</b>: query, limit, resolveDetails?</span><span><b data-vi>Ra</b><b data-en>Out</b>: items[] (kèm installs), searchType, unresolved[]</span></div>
+            <div class="td-mini"><div class="flow-svg-wrap"><svg viewBox="0 0 1046 144" role="img" aria-label="find_skills flow">
+              <defs>
+                <marker id="t10a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--sub)"/></marker>
+                <marker id="t10r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--red,#c85c4a)"/></marker>
+              </defs>
+              <path class="flow-edge" d="M166,33 L192,33" marker-end="url(#t10a)"/>
+              <path class="flow-edge" d="M366,33 L392,33" marker-end="url(#t10a)"/>
+              <path class="flow-edge" d="M566,33 L592,33" marker-end="url(#t10a)"/>
+              <path class="flow-edge" d="M766,33 L792,33" marker-end="url(#t10a)"/>
+              <path class="flow-edge refuse-edge" d="M87,56 L87,92" marker-end="url(#t10r)"/>
+              <path class="flow-edge refuse-edge" d="M279,56 L279,92" marker-end="url(#t10r)"/>
+
+              <g class="flow-node gate"><rect x="8" y="10" width="158" height="46" rx="10"/><text x="87" y="30" text-anchor="middle" style="font-size:10px">query ≥ 2 ký tự?</text><text x="87" y="44" text-anchor="middle" style="font-size:10px">/ 2+ chars?</text></g>
+              <g class="flow-node gate"><rect x="192" y="10" width="174" height="46" rx="10"/><text x="279" y="30" text-anchor="middle" style="font-size:10px">skills.sh /api/search</text><text x="279" y="44" text-anchor="middle" style="font-size:10px">semantic · no token</text></g>
+              <g class="flow-node"><rect x="392" y="10" width="174" height="46" rx="10"/><text x="479" y="30" text-anchor="middle" style="font-size:10px">lọc owner/repo</text><text x="479" y="44" text-anchor="middle" style="font-size:10px">+ installs</text></g>
+              <g class="flow-node optional"><rect x="592" y="10" width="174" height="46" rx="10"/><text x="679" y="30" text-anchor="middle" style="font-size:10px">GitHub: cây repo</text><text x="679" y="44" text-anchor="middle" style="font-size:10px">→ path + description</text></g>
+              <g class="flow-node pass"><rect x="792" y="10" width="166" height="46" rx="10"/><text x="875" y="30" text-anchor="middle" style="font-size:10px">items[] + searchType</text><text x="875" y="44" text-anchor="middle" style="font-size:10px">+ unresolved[]</text></g>
+
+              <g class="flow-node refuse"><rect x="8" y="92" width="158" height="44" rx="16"/><text x="87" y="118" text-anchor="middle" style="font-size:9.5px">query too short</text></g>
+              <g class="flow-node refuse"><rect x="192" y="92" width="174" height="44" rx="16"/><text x="279" y="112" text-anchor="middle" style="font-size:9.5px">registry down / 401 /</text><text x="279" y="126" text-anchor="middle" style="font-size:9.5px">non-JSON → dùng search_all_sources</text></g>
+            </svg></div></div>
+            <ol class="step-list">
+              <li><span data-vi><b>Khi nào dùng:</b> chỉ khi <code>search_all_sources</code> không ra gì. Tool đó chỉ thấy các repo trong <code>sources.json</code>; tool này với tới cả hệ sinh thái skill mở.</span><span data-en><b>When to use:</b> only after <code>search_all_sources</code> comes up empty. That one only sees repos in <code>sources.json</code>; this reaches the whole open skill ecosystem.</span></li>
+              <li><span class="refuse"><span data-vi>Chặn sớm nếu <code>query</code> ngắn hơn 2 ký tự — registry tự từ chối, nên dừng tại chỗ thay vì để lộ một lỗi 400 khó hiểu từ dịch vụ ngoài.</span><span data-en>Blocks early if <code>query</code> is under 2 characters — the registry rejects those itself, so it fails here rather than surfacing an opaque 400 from a remote service.</span></span></li>
+              <li><span data-vi><b>Gọi skills.sh</b> — kho đăng ký đứng sau CLI mã nguồn mở <code>npx skills</code> của Vercel Labs. Endpoint <code>/api/search</code> <b>công khai, không cần token nào</b>, đúng quy tắc "không lưu credential" của dự án.</span><span data-en><b>Calls skills.sh</b> — the registry behind Vercel Labs' open-source <code>npx skills</code> CLI. Its <code>/api/search</code> endpoint is <b>public and needs no token</b>, which is what makes it fit this project's no-credentials rule.</span></li>
+              <li><span data-vi><b>Ngữ nghĩa, không phải từ khoá.</b> Truy vấn nhiều từ được khớp theo <i>nghĩa</i> (<code>searchType: "semantic"</code>); một từ đơn rơi về khớp mờ theo tên (<code>"fuzzy"</code>). Vì vậy hãy viết truy vấn thành <b>một câu mô tả công việc</b> — hỏi "over-engineering" vẫn tìm ra skill tự gọi mình là "scope creep".</span><span data-en><b>Semantic, not keyword.</b> A multi-word query is matched by <i>meaning</i> (<code>searchType: "semantic"</code>); a single word falls back to fuzzy name matching (<code>"fuzzy"</code>). So phrase the query as <b>a sentence describing the job</b> — asking for "over-engineering" still finds a skill that calls itself "scope creep".</span></li>
+              <li><span data-vi><b>Số lượt cài là độ phổ biến, KHÔNG phải kiểm duyệt.</b> Chính skills.sh cũng ghi vậy. Một skill nhiều lượt cài chỉ có nghĩa nhiều người tải — vẫn phải chạy <code>validate_skill</code> + <code>benchmark_skill</code> trước khi dùng.</span><span data-en><b>Install counts are popularity, NOT review.</b> skills.sh says so itself. A high count only means many people downloaded it — still run <code>validate_skill</code> + <code>benchmark_skill</code> before using it.</span></li>
+              <li><span data-vi><b>Tra ngược GitHub</b> (bỏ qua được bằng <code>resolveDetails: false</code>): registry chỉ trả <code>owner/repo/skillId</code>, thiếu <b>đường dẫn thật</b> và <b>mô tả</b>. Tool tải cây thư mục <b>một lần cho mỗi repo</b> (dùng lại cache 5 phút) để lấp hai trường đó, nhờ vậy kết quả đưa thẳng sang <code>pull_skill</code> được.</span><span data-en><b>Resolves details on GitHub</b> (skippable via <code>resolveDetails: false</code>): the registry returns only <code>owner/repo/skillId</code> — no <b>real folder path</b>, no <b>description</b>. The tool loads <b>one cached repo tree per repo</b> (not one call per hit) to fill both in, so a result can be handed straight to <code>pull_skill</code>.</span></li>
+              <li><span data-vi>Kết quả không tra được (repo riêng tư, đã đổi tên, thư mục không trùng tên skill) <b>không bị vứt bỏ</b> — vẫn trả về với <code>path: null</code> và được liệt kê trong <code>unresolved[]</code>.</span><span data-en>Hits that can't be resolved (private repo, renamed, folder not named after the skill) are <b>not dropped</b> — they come back with <code>path: null</code> and are listed in <code>unresolved[]</code>.</span></li>
+              <li><span class="refuse"><span data-vi><b>Đây là tool duy nhất phụ thuộc dịch vụ ngoài.</b> <code>/api/search</code> không nằm trong tài liệu API chính thức của skills.sh (bản <code>/api/v1/*</code> cần token Vercel và trả 401), nên nó có thể đổi hoặc biến mất. Mọi kiểu hỏng — thêm auth, endpoint bị gỡ trả về HTML, mất mạng, treo — đều báo lỗi rõ ràng kèm nhắc dùng <code>search_all_sources</code>, không bao giờ crash. Đổi nguồn bằng biến <code>SKILLS_REGISTRY_URL</code>.</span><span data-en><b>This is the only tool with an external dependency.</b> <code>/api/search</code> is not in skills.sh's published API docs (the <code>/api/v1/*</code> ones need a Vercel token and answer 401), so it may change or disappear. Every failure mode — auth added, endpoint retired and answering HTML, host unreachable, request hung — surfaces as a clear message pointing at <code>search_all_sources</code>, never a crash. Redirect it with <code>SKILLS_REGISTRY_URL</code>.</span></span></li>
+              <li><span class="refuse"><span data-vi><b>Kiểm <code>upstream</code> trước khi kéo về.</b> Skill phổ biến thường được lập chỉ mục dưới repo phát hành lại chứ không phải repo gốc, và bản sao có thể <b>không có license</b> dù bản gốc là MIT. Nếu frontmatter ghi <code>upstream</code>, hãy lấy từ đó.</span><span data-en><b>Check for an <code>upstream</code> before pulling.</b> Popular skills are often indexed under a redistributor rather than their origin, and the copy may carry <b>no license</b> even when the original is MIT. If the frontmatter names an <code>upstream</code>, pull from there instead.</span></span></li>
+            </ol>
+          </div>
+        </details>
+
+        <details class="tool-detail">
+          <summary><code>pull_skill</code><span class="td-desc" data-vi>Kéo skill về thư viện local</span><span class="td-desc" data-en>Fetch a skill into the local library</span></summary>
+          <div class="tool-detail-body">
+            <div class="td-io"><span><b data-vi>Vào</b><b data-en>In</b>: owner, repo, ref?, skillPaths[]</span><span><b data-vi>Ra</b><b data-en>Out</b>: pulled[] (status, localPath, warnings)</span></div>
+            <div class="td-mini"><div class="flow-svg-wrap"><svg viewBox="0 0 870 144" role="img" aria-label="pull_skill flow">
+              <defs>
+                <marker id="t3a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--sub)"/></marker>
+                <marker id="t3r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--red,#c85c4a)"/></marker>
+              </defs>
+              <path class="flow-edge" d="M158,33 L184,33" marker-end="url(#t3a)"/>
+              <path class="flow-edge" d="M334,33 L360,33" marker-end="url(#t3a)"/>
+              <path class="flow-edge" d="M510,33 L536,33" marker-end="url(#t3a)"/>
+              <path class="flow-edge" d="M686,33 L712,33" marker-end="url(#t3a)"/>
+              <path class="flow-edge refuse-edge" d="M259,56 L259,92" marker-end="url(#t3r)"/>
+              <path class="flow-edge refuse-edge" d="M435,56 L435,92" marker-end="url(#t3r)"/>
+              <g class="flow-node"><rect x="8" y="10" width="150" height="46" rx="10"/><text x="83" y="30" text-anchor="middle" style="font-size:10px">verify SKILL.md</text><text x="83" y="44" text-anchor="middle" style="font-size:10px">at path</text></g>
+              <g class="flow-node gate"><rect x="184" y="10" width="150" height="46" rx="10"/><text x="259" y="37" text-anchor="middle">safe name?</text></g>
+              <g class="flow-node gate"><rect x="360" y="10" width="150" height="46" rx="10"/><text x="435" y="37" text-anchor="middle">no zip-slip?</text></g>
+              <g class="flow-node"><rect x="536" y="10" width="150" height="46" rx="10"/><text x="611" y="30" text-anchor="middle" style="font-size:10px">write bytes to</text><text x="611" y="44" text-anchor="middle" style="font-size:10px">SKILL-LIB/</text></g>
+              <g class="flow-node"><rect x="712" y="10" width="150" height="46" rx="10"/><text x="787" y="30" text-anchor="middle" style="font-size:10px">warn on missing</text><text x="787" y="44" text-anchor="middle" style="font-size:10px">frontmatter</text></g>
+              <g class="flow-node refuse"><rect x="184" y="92" width="150" height="44" rx="16"/><text x="259" y="110" text-anchor="middle" style="font-size:9.5px">refuse: bad</text><text x="259" y="123" text-anchor="middle" style="font-size:9.5px">skill name</text></g>
+              <g class="flow-node refuse"><rect x="360" y="92" width="150" height="44" rx="16"/><text x="435" y="110" text-anchor="middle" style="font-size:9.5px">refuse: path</text><text x="435" y="123" text-anchor="middle" style="font-size:9.5px">traversal</text></g>
+            </svg></div></div>
+            <ol class="step-list">
+              <li><span data-vi>Với mỗi <code>skillPath</code>: kiểm tra repo có đúng file <code>SKILL.md</code> ở đường dẫn đó không — không có thì báo lỗi ngay, không tải gì.</span><span data-en>For each <code>skillPath</code>: checks the repo actually has a <code>SKILL.md</code> at that path — if not, errors immediately, nothing downloaded.</span></li>
+              <li><span class="refuse"><span data-vi>Chặn tên thư mục đích không hợp lệ (chứa <code>/</code>, <code>..</code>, đường dẫn tuyệt đối...) — không cho ghi ra ngoài thư viện skill.</span><span data-en>Refuses an unsafe destination folder name (containing <code>/</code>, <code>..</code>, an absolute path...) — never writes outside the skill library.</span></span></li>
+              <li><span class="refuse"><span data-vi>Với từng file trong skill: nếu đường dẫn file trong repo trỏ ra ngoài thư mục đích (zip-slip) thì huỷ toàn bộ skill đó, không ghi file nào.</span><span data-en>Per file inside the skill: if the repo's path for that file resolves outside the destination folder (zip-slip), the whole skill is aborted — nothing written.</span></span></li>
+              <li><span data-vi>Ghi từng file xuống <code>SKILL-LIB/&lt;tên-skill&gt;/</code> dưới dạng byte thô (không qua text) — để không làm hỏng ảnh/PDF/font trong skill.</span><span data-en>Writes each file into <code>SKILL-LIB/&lt;skill-name&gt;/</code> as raw bytes (not text) — so images/PDFs/fonts inside the skill aren't corrupted.</span></li>
+              <li><span data-vi>Đọc lại frontmatter vừa tải, cảnh báo nếu thiếu <code>name</code>/<code>description</code>, tên không khớp thư mục, hoặc có key riêng của 1 agent cụ thể khó mang sang agent khác.</span><span data-en>Re-reads the just-downloaded frontmatter, warns if <code>name</code>/<code>description</code> is missing, the name doesn't match the folder, or there are agent-specific keys that won't port cleanly.</span></li>
+            </ol>
+          </div>
+        </details>
+
+        <details class="tool-detail">
+          <summary><code>detect_agents</code><span class="td-desc" data-vi>Dò agent nào có mặt trên máy</span><span class="td-desc" data-en>Detect which agents are present</span></summary>
+          <div class="tool-detail-body">
+            <div class="td-io"><span><b data-vi>Vào</b><b data-en>In</b>: cwd?</span><span><b data-vi>Ra</b><b data-en>Out</b>: agents[] (agent, scope, skillsDir, agentPresent)</span></div>
+            <div class="td-mini"><div class="flow-svg-wrap"><svg viewBox="0 0 530 66" role="img" aria-label="detect_agents flow">
+              <defs><marker id="t4a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--sub)"/></marker></defs>
+              <path class="flow-edge" d="M160,33 L176,33" marker-end="url(#t4a)"/>
+              <path class="flow-edge" d="M336,33 L352,33" marker-end="url(#t4a)"/>
+              <g class="flow-node"><rect x="8" y="10" width="152" height="46" rx="10"/><text x="84" y="30" text-anchor="middle" style="font-size:10px">no network</text><text x="84" y="44" text-anchor="middle" style="font-size:10px">(disk only)</text></g>
+              <g class="flow-node"><rect x="176" y="10" width="160" height="46" rx="10"/><text x="256" y="30" text-anchor="middle" style="font-size:10px">check global +</text><text x="256" y="44" text-anchor="middle" style="font-size:10px">project dirs</text></g>
+              <g class="flow-node"><rect x="352" y="10" width="170" height="46" rx="10"/><text x="437" y="30" text-anchor="middle" style="font-size:10px">return every location</text><text x="437" y="44" text-anchor="middle" style="font-size:10px">+ present flag</text></g>
+            </svg></div></div>
+            <ol class="step-list">
+              <li><span data-vi>Không gọi mạng — chỉ kiểm tra ổ đĩa cục bộ.</span><span data-en>No network call — checks the local disk only.</span></li>
+              <li><span data-vi>Với mỗi agent đã biết (Claude Code, Codex, OpenCode, Cursor, Gemini CLI, Copilot): kiểm tra cả 2 thư mục skill khả dĩ — <code>global</code> (thư mục home) và <code>project</code> (thư mục <code>cwd</code>).</span><span data-en>For each known agent (Claude Code, Codex, OpenCode, Cursor, Gemini CLI, Copilot): checks both its possible skill folders — <code>global</code> (home directory) and <code>project</code> (the <code>cwd</code> folder).</span></li>
+              <li><span data-vi>Trả về danh sách đầy đủ mọi vị trí đã kiểm tra, kèm cờ có mặt/không — không chỉ đếm số lượng, để agent gọi biết chính xác thiếu chỗ nào.</span><span data-en>Returns every location it checked with a present/absent flag — not just a count, so the calling agent knows exactly which ones are missing.</span></li>
+            </ol>
+          </div>
+        </details>
+
+        <details class="tool-detail">
+          <summary><code>deploy_skill</code><span class="td-desc" data-vi>Symlink skill vào từng agent</span><span class="td-desc" data-en>Symlink the skill into each agent</span></summary>
+          <div class="tool-detail-body">
+            <div class="td-io"><span><b data-vi>Vào</b><b data-en>In</b>: skillName, targets?, scopes?</span><span><b data-vi>Ra</b><b data-en>Out</b>: results[] (agent, scope, status)</span></div>
+            <div class="td-mini"><div class="flow-svg-wrap"><svg viewBox="0 0 700 144" role="img" aria-label="deploy_skill flow">
+              <defs>
+                <marker id="t5a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--sub)"/></marker>
+                <marker id="t5r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--red,#c85c4a)"/></marker>
+              </defs>
+              <path class="flow-edge" d="M158,33 L184,33" marker-end="url(#t5a)"/>
+              <path class="flow-edge" d="M334,33 L360,33" marker-end="url(#t5a)"/>
+              <path class="flow-edge" d="M510,33 L536,33" marker-end="url(#t5a)"/>
+              <path class="flow-edge refuse-edge" d="M435,56 L435,92" marker-end="url(#t5r)"/>
+              <g class="flow-node"><rect x="8" y="10" width="150" height="46" rx="10"/><text x="83" y="30" text-anchor="middle" style="font-size:10px">check SKILL.md</text><text x="83" y="44" text-anchor="middle" style="font-size:10px">exists</text></g>
+              <g class="flow-node"><rect x="184" y="10" width="150" height="46" rx="10"/><text x="259" y="30" text-anchor="middle" style="font-size:10px">detect_agents +</text><text x="259" y="44" text-anchor="middle" style="font-size:10px">filter (ask scope)</text></g>
+              <g class="flow-node gate"><rect x="360" y="10" width="150" height="46" rx="10"/><text x="435" y="30" text-anchor="middle" style="font-size:10px">existing real</text><text x="435" y="44" text-anchor="middle" style="font-size:10px">folder?</text></g>
+              <g class="flow-node"><rect x="536" y="10" width="150" height="46" rx="10"/><text x="611" y="30" text-anchor="middle" style="font-size:10px">create symlink</text><text x="611" y="44" text-anchor="middle" style="font-size:10px">(fallback: copy)</text></g>
+              <g class="flow-node refuse"><rect x="360" y="92" width="150" height="44" rx="16"/><text x="435" y="110" text-anchor="middle" style="font-size:9.5px">skip: never</text><text x="435" y="123" text-anchor="middle" style="font-size:9.5px">overwrite real folder</text></g>
+            </svg></div></div>
+            <ol class="step-list">
+              <li><span data-vi>Kiểm tra <code>SKILL-LIB/&lt;skillName&gt;/SKILL.md</code> tồn tại — chưa có thì báo chạy <code>pull_skill</code> trước.</span><span data-en>Checks <code>SKILL-LIB/&lt;skillName&gt;/SKILL.md</code> exists — if not, tells you to run <code>pull_skill</code> first.</span></li>
+              <li><span data-vi>Chạy <code>detect_agents</code> nội bộ, rồi lọc theo <code>targets</code>/<code>scopes</code> nếu có — <b>agent gọi tool phải hỏi bạn chọn scope trước</b> (global hay project), không tự mặc định cài hết mọi nơi.</span><span data-en>Runs <code>detect_agents</code> internally, then filters by <code>targets</code>/<code>scopes</code> if given — <b>the calling agent is required to ask you which scope</b> (global or project) first, never silently deploy everywhere.</span></li>
+              <li><span data-vi>Tạo symlink (junction trên Windows) từ thư mục skill agent đó tới đúng skill trong <code>SKILL-LIB/</code> — chỉ 1 bản gốc, mọi agent trỏ vào cùng chỗ.</span><span data-en>Creates a symlink (junction on Windows) from that agent's skill folder to the one copy in <code>SKILL-LIB/</code> — a single source of truth every agent points at.</span></li>
+              <li><span class="refuse"><span data-vi>Không bao giờ ghi đè 1 thư mục thật (không phải symlink) đã có sẵn cùng tên — báo lỗi thay vì xoá dữ liệu người dùng.</span><span data-en>Never overwrites an existing real folder (not a symlink) with the same name — errors instead of clobbering user data.</span></span></li>
+              <li><span data-vi>Máy không hỗ trợ symlink thì tự chuyển sang copy file thường, và báo rõ trong kết quả đây là bản sao chứ không phải symlink.</span><span data-en>Falls back to a plain file copy where symlinking isn't available, and flags in the result that it's a copy, not a symlink.</span></li>
+            </ol>
+          </div>
+        </details>
+
+        <details class="tool-detail">
+          <summary><code>remove_skill</code><span class="td-desc" data-vi>Gỡ symlink &amp; dọn thư viện</span><span class="td-desc" data-en>Undo the deploy &amp; clean up the library</span></summary>
+          <div class="tool-detail-body">
+            <div class="td-io"><span><b data-vi>Vào</b><b data-en>In</b>: skillName, keepInLibrary?</span><span><b data-vi>Ra</b><b data-en>Out</b>: undeployed[], libraryRemoved</span></div>
+            <div class="td-mini"><div class="flow-svg-wrap"><svg viewBox="0 0 700 144" role="img" aria-label="remove_skill flow">
+              <defs>
+                <marker id="t6a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--sub)"/></marker>
+                <marker id="t6r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--red,#c85c4a)"/></marker>
+              </defs>
+              <path class="flow-edge" d="M158,33 L184,33" marker-end="url(#t6a)"/>
+              <path class="flow-edge" d="M334,33 L360,33" marker-end="url(#t6a)"/>
+              <path class="flow-edge" d="M510,33 L536,33" marker-end="url(#t6a)"/>
+              <path class="flow-edge refuse-edge" d="M83,56 L83,92" marker-end="url(#t6r)"/>
+              <path class="flow-edge refuse-edge" d="M435,56 L435,92" marker-end="url(#t6r)"/>
+              <g class="flow-node gate"><rect x="8" y="10" width="150" height="46" rx="10"/><text x="83" y="30" text-anchor="middle" style="font-size:10px">own symlink to</text><text x="83" y="44" text-anchor="middle" style="font-size:10px">THIS skill?</text></g>
+              <g class="flow-node"><rect x="184" y="10" width="150" height="46" rx="10"/><text x="259" y="30" text-anchor="middle" style="font-size:10px">rescan ALL</text><text x="259" y="44" text-anchor="middle" style="font-size:10px">agents</text></g>
+              <g class="flow-node gate"><rect x="360" y="10" width="150" height="46" rx="10"/><text x="435" y="30" text-anchor="middle" style="font-size:10px">still deployed</text><text x="435" y="44" text-anchor="middle" style="font-size:10px">elsewhere?</text></g>
+              <g class="flow-node"><rect x="536" y="10" width="150" height="46" rx="10"/><text x="611" y="30" text-anchor="middle" style="font-size:10px">delete source</text><text x="611" y="44" text-anchor="middle" style="font-size:10px">(permanent)</text></g>
+              <g class="flow-node refuse"><rect x="8" y="92" width="150" height="44" rx="16"/><text x="83" y="118" text-anchor="middle" style="font-size:9.5px">skip: left untouched</text></g>
+              <g class="flow-node refuse"><rect x="360" y="92" width="150" height="44" rx="16"/><text x="435" y="110" text-anchor="middle" style="font-size:9.5px">keep source folder</text><text x="435" y="123" text-anchor="middle" style="font-size:9.5px">(no delete)</text></g>
+            </svg></div></div>
+            <ol class="step-list">
+              <li><span class="refuse"><span data-vi>Với mỗi agent: chỉ xoá nếu đường dẫn đó <b>thật sự là symlink trỏ về đúng skill này</b> — 1 thư mục thật trùng tên, hoặc symlink trỏ nơi khác, đều bị bỏ qua (báo "skipped"), không đụng vào.</span><span data-en>Per agent: only deletes a path if it's <b>genuinely a symlink resolving back to this exact skill</b> — a real same-named folder, or a symlink pointing elsewhere, is left alone and reported "skipped".</span></span></li>
+              <li><span data-vi>Sau khi gỡ xong, quét lại <b>toàn bộ</b> agent trên máy (kể cả agent không nằm trong <code>targets</code> của lần gọi này) để xem còn nơi nào đang trỏ vào skill đó không.</span><span data-en>After undeploying, rescans <b>every</b> agent on the machine (even ones outside this call's <code>targets</code>) to check if anything still points at this skill.</span></li>
+              <li><span class="refuse"><span data-vi>Nếu còn nơi nào đang dùng và <code>keepInLibrary</code> không được đặt: <b>giữ lại</b> thư mục gốc trong <code>SKILL-LIB/</code> thay vì xoá — tránh để lại symlink lơ lửng, đúng vấn đề tool này sinh ra để giải quyết.</span><span data-en>If anything still uses it and <code>keepInLibrary</code> isn't set: <b>keeps</b> the source folder in <code>SKILL-LIB/</code> rather than deleting it — avoids recreating the dangling-symlink mess this tool exists to fix.</span></span></li>
+              <li><span data-vi>Chỉ khi không còn nơi nào dùng nữa mới thật sự xoá thư mục gốc — xoá vĩnh viễn, không có hoàn tác (<code>SKILL_LIBRARY_PATH</code> không nằm trong git).</span><span data-en>Only once nothing else uses it does it actually delete the source folder — permanent, no undo (<code>SKILL_LIBRARY_PATH</code> isn't git-tracked).</span></li>
+            </ol>
+          </div>
+        </details>
+
+        <details class="tool-detail">
+          <summary><code>validate_skill</code><span class="td-desc" data-vi>Kiểm tra định dạng, không cần mạng</span><span class="td-desc" data-en>Check the format, no network needed</span></summary>
+          <div class="tool-detail-body">
+            <div class="td-io"><span><b data-vi>Vào</b><b data-en>In</b>: skillPath</span><span><b data-vi>Ra</b><b data-en>Out</b>: valid, issues[]</span></div>
+            <div class="td-mini"><div class="flow-svg-wrap"><svg viewBox="0 0 400 66" role="img" aria-label="validate_skill flow">
+              <defs><marker id="t7a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--sub)"/></marker></defs>
+              <path class="flow-edge" d="M188,33 L204,33" marker-end="url(#t7a)"/>
+              <g class="flow-node"><rect x="8" y="10" width="180" height="46" rx="10"/><text x="98" y="30" text-anchor="middle" style="font-size:10px">run 4 lint rules</text><text x="98" y="44" text-anchor="middle" style="font-size:10px">(local, no network)</text></g>
+              <g class="flow-node"><rect x="204" y="10" width="190" height="46" rx="10"/><text x="299" y="37" text-anchor="middle" style="font-size:10.5px">return valid + issues[]</text></g>
+            </svg></div></div>
+            <ol class="step-list">
+              <li><span data-vi>Chạy đúng 4 luật lint mà CI của <code>SKILL-LIB</code> cũng dùng: frontmatter parse được, chỉ có key <code>name</code>/<code>description</code>, định dạng/độ dài <code>name</code> khớp tên thư mục, <code>description</code> không rỗng.</span><span data-en>Runs the same 4 rules <code>SKILL-LIB</code>'s CI lint enforces: frontmatter parses, only <code>name</code>/<code>description</code> keys allowed, <code>name</code> format/length matches the folder, <code>description</code> non-empty.</span></li>
+              <li><span data-vi>Không gọi mạng, có thể gọi lại nhiều lần thoải mái — nhưng chỉ là xấp xỉ cục bộ, không thay thế được lint CI thật (bộ đọc frontmatter ở đây không phải YAML parser đầy đủ).</span><span data-en>No network calls, safe to call repeatedly — but it's a local approximation only, not a substitute for the real CI lint (the frontmatter reader here isn't a full YAML parser).</span></li>
+            </ol>
+          </div>
+        </details>
+
+        <details class="tool-detail">
+          <summary><code>benchmark_skill</code><span class="td-desc" data-vi>Chấm 6 lớp chất lượng</span><span class="td-desc" data-en>Scores 6 quality layers</span><span class="gate-badge" data-vi>Cổng chặn</span><span class="gate-badge" data-en>Gate</span></summary>
+          <div class="tool-detail-body">
+            <div class="td-io"><span><b data-vi>Vào</b><b data-en>In</b>: skillPath, results? (bắt buộc ở lần gọi 2)</span><span><b data-vi>Ra</b><b data-en>Out</b>: testPlan <i data-vi>hoặc</i><i data-en>or</i> reportPath + overallPassed</span></div>
+            <div class="td-mini"><div class="flow-svg-wrap"><svg viewBox="0 0 1046 144" role="img" aria-label="benchmark_skill flow">
+              <defs>
+                <marker id="t8a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--sub)"/></marker>
+                <marker id="t8r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--red,#c85c4a)"/></marker>
+              </defs>
+              <path class="flow-edge" d="M158,33 L184,33" marker-end="url(#t8a)"/>
+              <path class="flow-edge" d="M334,33 L360,33" marker-end="url(#t8a)"/>
+              <path class="flow-edge dashed" d="M510,33 L536,33" marker-end="url(#t8a)"/>
+              <path class="flow-edge dashed" d="M686,33 L712,33" marker-end="url(#t8a)"/>
+              <path class="flow-edge" d="M862,33 L888,33" marker-end="url(#t8a)"/>
+              <path class="flow-edge refuse-edge" d="M963,56 L963,92" marker-end="url(#t8r)"/>
+              <g class="flow-node"><rect x="8" y="10" width="150" height="46" rx="10"/><text x="83" y="30" text-anchor="middle" style="font-size:10px">call 1:</text><text x="83" y="44" text-anchor="middle" style="font-size:10px">skillPath only</text></g>
+              <g class="flow-node"><rect x="184" y="10" width="150" height="46" rx="10"/><text x="259" y="30" text-anchor="middle" style="font-size:10px">compute Layer 0</text><text x="259" y="44" text-anchor="middle" style="font-size:10px">(static, from disk)</text></g>
+              <g class="flow-node"><rect x="360" y="10" width="150" height="46" rx="10"/><text x="435" y="30" text-anchor="middle" style="font-size:10px">return test plan</text><text x="435" y="44" text-anchor="middle" style="font-size:10px">(Layers 1-5)</text></g>
+              <g class="flow-node optional"><rect x="536" y="10" width="150" height="46" rx="10"/><text x="611" y="30" text-anchor="middle" style="font-size:9.5px">agent runs REAL</text><text x="611" y="44" text-anchor="middle" style="font-size:9.5px">fresh sessions</text></g>
+              <g class="flow-node"><rect x="712" y="10" width="150" height="46" rx="10"/><text x="787" y="30" text-anchor="middle" style="font-size:10px">call 2:</text><text x="787" y="44" text-anchor="middle" style="font-size:10px">write HTML report</text></g>
+              <g class="flow-node gate"><rect x="888" y="10" width="150" height="46" rx="10"/><text x="963" y="30" text-anchor="middle" style="font-size:10px">6 conditions</text><text x="963" y="44" text-anchor="middle" style="font-size:10px">all pass?</text></g>
+              <g class="flow-node refuse"><rect x="888" y="92" width="150" height="44" rx="16"/><text x="963" y="110" text-anchor="middle" style="font-size:9.5px">FAIL: fix weak</text><text x="963" y="123" text-anchor="middle" style="font-size:9.5px">layer(s)</text></g>
+            </svg></div>
+            <div class="flow-note"><span data-vi>Nhánh còn lại (không rẽ đỏ) là <b>PASS — sẵn sàng push</b>.</span><span data-en>The path that doesn't branch red is <b>PASS — ready to push</b>.</span></div></div>
+            <ol class="step-list">
+              <li><span data-vi><b>Lần gọi 1</b> (chỉ <code>skillPath</code>): tự tính Layer 0 (Tĩnh) từ đĩa — số module, độ dài mô tả... — rồi trả về 1 <b>bản kế hoạch test</b> cho Layer 1-5, vì tool này <b>không tự chạy được skill hay mở session</b>.</span><span data-en><b>First call</b> (just <code>skillPath</code>): computes Layer 0 (Static) mechanically from disk — module count, description length... — and returns a <b>test plan</b> for Layers 1-5, since this tool <b>cannot run the skill or spawn a session itself</b>.</span></li>
+              <li><span data-vi>Agent gọi tool phải tự thực hiện kế hoạch đó bằng session mới, không có ngữ cảnh trước (Trigger dương/âm, có/không skill, chạy lặp 3 lần) — điểm tự đoán không được chấp nhận.</span><span data-en>The calling agent must actually execute that plan with fresh, no-prior-context sessions (positive/negative trigger, with/without skill, 3 repeat runs) — a self-rated guess is not accepted.</span></li>
+              <li><span data-vi><b>Lần gọi 2</b> (kèm <code>results</code> thật): ghi ra file HTML báo cáo cố định tại <code>&lt;skillPath&gt;.benchmark-report.html</code> — nằm <b>ngoài</b> thư mục skill nên không bao giờ bị đẩy lên cùng skill.</span><span data-en><b>Second call</b> (with real <code>results</code>): writes a permanent HTML report to <code>&lt;skillPath&gt;.benchmark-report.html</code> — a sibling of the skill folder, so it's never pushed along as skill content.</span></li>
+              <li><span class="refuse"><span data-vi>Tính <code>overallPassed</code>: phải Layer 0 pass + Trigger dương thật sự kích hoạt + Trigger âm không kích hoạt + Outcome có skill tốt hơn không skill + Stability ≥3 lần chạy và nhất quán + điểm tổng ≥70/100 — thiếu 1 điều kiện là FAIL.</span><span data-en>Computes <code>overallPassed</code>: requires Layer 0 pass + positive trigger actually fired + negative trigger did not fire + outcome shows the skill helped + stability ≥3 consistent runs + total score ≥70/100 — missing any one condition is FAIL.</span></span></li>
+            </ol>
+          </div>
+        </details>
+
+        <details class="tool-detail">
+          <summary><code>push_skill</code><span class="td-desc" data-vi>Fork repo, commit vào fork, mở PR</span><span class="td-desc" data-en>Fork the repo, commit to the fork, open a PR</span><span class="gate-badge" data-vi>Cổng chặn</span><span class="gate-badge" data-en>Gate</span></summary>
+          <div class="tool-detail-body">
+            <div class="td-io"><span><b data-vi>Vào</b><b data-en>In</b>: skillPath, owner, repo, identity, benchmark</span><span><b data-vi>Ra</b><b data-en>Out</b>: status, commitSha, forkFullName, pullRequestUrl</span></div>
+            <div class="td-mini"><div class="flow-svg-wrap"><svg viewBox="0 0 1574 144" role="img" aria-label="push_skill flow">
+              <defs>
+                <marker id="t9a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--sub)"/></marker>
+                <marker id="t9r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--red,#c85c4a)"/></marker>
+              </defs>
+              <path class="flow-edge" d="M158,33 L184,33" marker-end="url(#t9a)"/>
+              <path class="flow-edge" d="M334,33 L360,33" marker-end="url(#t9a)"/>
+              <path class="flow-edge" d="M510,33 L536,33" marker-end="url(#t9a)"/>
+              <path class="flow-edge" d="M686,33 L712,33" marker-end="url(#t9a)"/>
+              <path class="flow-edge" d="M862,33 L888,33" marker-end="url(#t9a)"/>
+              <path class="flow-edge" d="M1038,33 L1064,33" marker-end="url(#t9a)"/>
+              <path class="flow-edge" d="M1214,33 L1240,33" marker-end="url(#t9a)"/>
+              <path class="flow-edge" d="M1390,33 L1416,33" marker-end="url(#t9a)"/>
+              <path class="flow-edge refuse-edge" d="M83,56 L83,92" marker-end="url(#t9r)"/>
+              <path class="flow-edge refuse-edge" d="M259,56 L259,92" marker-end="url(#t9r)"/>
+              <path class="flow-edge refuse-edge" d="M435,56 L435,92" marker-end="url(#t9r)"/>
+              <path class="flow-edge refuse-edge" d="M611,56 L611,92" marker-end="url(#t9r)"/>
+              <path class="flow-edge refuse-edge" d="M787,56 L787,92" marker-end="url(#t9r)"/>
+              <path class="flow-edge refuse-edge" d="M1315,56 L1315,92" marker-end="url(#t9r)"/>
+
+              <g class="flow-node gate"><rect x="8" y="10" width="150" height="46" rx="10"/><text x="83" y="30" text-anchor="middle" style="font-size:10px">1. validate</text><text x="83" y="44" text-anchor="middle" style="font-size:10px">format</text></g>
+              <g class="flow-node gate"><rect x="184" y="10" width="150" height="46" rx="10"/><text x="259" y="30" text-anchor="middle" style="font-size:10px">1a. benchmark</text><text x="259" y="44" text-anchor="middle" style="font-size:10px">gate (&#8805;70)</text></g>
+              <g class="flow-node gate"><rect x="360" y="10" width="150" height="46" rx="10"/><text x="435" y="30" text-anchor="middle" style="font-size:10px">1b+1c. secrets</text><text x="435" y="44" text-anchor="middle" style="font-size:10px">+ dangerous</text></g>
+              <g class="flow-node gate"><rect x="536" y="10" width="150" height="46" rx="10"/><text x="611" y="30" text-anchor="middle" style="font-size:10px">2. identity</text><text x="611" y="44" text-anchor="middle" style="font-size:10px">matches gh?</text></g>
+              <g class="flow-node gate"><rect x="712" y="10" width="150" height="46" rx="10"/><text x="787" y="30" text-anchor="middle" style="font-size:10px">3. fork mine?</text><text x="787" y="44" text-anchor="middle" style="font-size:10px">else create</text></g>
+              <g class="flow-node"><rect x="888" y="10" width="150" height="46" rx="10"/><text x="963" y="30" text-anchor="middle" style="font-size:10px">4. branch in fork</text><text x="963" y="44" text-anchor="middle" style="font-size:10px">from upstream head</text></g>
+              <g class="flow-node"><rect x="1064" y="10" width="150" height="46" rx="10"/><text x="1139" y="30" text-anchor="middle" style="font-size:10px">5-7. commit</text><text x="1139" y="44" text-anchor="middle" style="font-size:10px">into FORK</text></g>
+              <g class="flow-node gate"><rect x="1240" y="10" width="150" height="46" rx="10"/><text x="1315" y="30" text-anchor="middle" style="font-size:10px">fork branch</text><text x="1315" y="44" text-anchor="middle" style="font-size:10px">moved mid-push?</text></g>
+              <g class="flow-node pass"><rect x="1416" y="10" width="150" height="46" rx="10"/><text x="1491" y="30" text-anchor="middle" style="font-size:10px">8. PR to upstream</text><text x="1491" y="44" text-anchor="middle" style="font-size:10px">new or reused</text></g>
+
+              <g class="flow-node refuse"><rect x="8" y="92" width="150" height="44" rx="16"/><text x="83" y="118" text-anchor="middle" style="font-size:9.5px">validation-failed</text></g>
+              <g class="flow-node refuse"><rect x="184" y="92" width="150" height="44" rx="16"/><text x="259" y="118" text-anchor="middle" style="font-size:9.5px">benchmark-too-low</text></g>
+              <g class="flow-node refuse"><rect x="360" y="92" width="150" height="44" rx="16"/><text x="435" y="112" text-anchor="middle" style="font-size:9.5px">secrets-detected /</text><text x="435" y="126" text-anchor="middle" style="font-size:9.5px">dangerous-instructions</text></g>
+              <g class="flow-node refuse"><rect x="536" y="92" width="150" height="44" rx="16"/><text x="611" y="118" text-anchor="middle" style="font-size:9.5px">identity-mismatch</text></g>
+              <g class="flow-node refuse"><rect x="712" y="92" width="150" height="44" rx="16"/><text x="787" y="118" text-anchor="middle" style="font-size:9.5px">fork-name-conflict</text></g>
+              <g class="flow-node refuse"><rect x="1240" y="92" width="150" height="44" rx="16"/><text x="1315" y="118" text-anchor="middle" style="font-size:9.5px">conflict (retry)</text></g>
+            </svg></div></div>
+            <ol class="step-list">
+              <li><span class="refuse"><span data-vi><b>Bước 1 — Validate:</b> chạy đúng luật của <code>validate_skill</code>; sai là dừng ngay, chưa gọi GitHub lần nào (<code>status: "validation-failed"</code>).</span><span data-en><b>Step 1 — Validate:</b> runs the same rules as <code>validate_skill</code>; fails closed with zero GitHub calls made (<code>status: "validation-failed"</code>).</span></span></li>
+              <li><span class="refuse"><span data-vi><b>Bước 1a — Cổng benchmark:</b> yêu cầu bắt buộc <code>benchmark</code> thật (không có cờ bỏ qua) — Layer 0 fail, Trigger dương không kích hoạt, Trigger âm kích hoạt sai, Outcome không tốt hơn, Stability &lt;3 lần hoặc không nhất quán, hoặc điểm &lt;70 đều bị chặn (<code>"benchmark-too-low"</code>).</span><span data-en><b>Step 1a — Benchmark gate:</b> requires a real <code>benchmark</code> result (no override flag) — Layer 0 fail, positive trigger not firing, negative trigger firing, outcome not better, stability &lt;3 runs or inconsistent, or score &lt;70 all block the push (<code>"benchmark-too-low"</code>).</span></span></li>
+              <li><span class="refuse"><span data-vi><b>Bước 1b+1c — Hai lớp quét:</b> <b>1b</b> soi <i>tên file</i> tìm dấu hiệu credential (<code>.env</code>, <code>*.pem</code>, <code>id_rsa</code>...) → <code>"secrets-detected"</code>. <b>1c</b> soi <i>nội dung SKILL.md</i> tìm hướng dẫn phá/đánh cắp dữ liệu — lệnh xoá không giới hạn phạm vi, hoặc đường dẫn nhạy cảm đi kèm lệnh gửi mạng → <code>"dangerous-instructions-detected"</code>. Cả hai đều không có cờ bỏ qua. Lệnh có phạm vi rõ như <code>rm -rf dist/</code> không bị báo oan.</span><span data-en><b>Steps 1b+1c — Two sweeps:</b> <b>1b</b> scans <i>filenames</i> for credentials (<code>.env</code>, <code>*.pem</code>, <code>id_rsa</code>...) → <code>"secrets-detected"</code>. <b>1c</b> scans <i>SKILL.md content</i> for instructions consistent with data theft or destruction — an unscoped delete, or a sensitive path named alongside a network-send call → <code>"dangerous-instructions-detected"</code>. Neither has an override flag. Scoped commands like <code>rm -rf dist/</code> do not trip it.</span></span></li>
+              <li><span class="refuse"><span data-vi><b>Bước 2 — Đối chiếu danh tính:</b> so <code>identity</code> bạn khai với tài khoản <code>gh</code> đang đăng nhập — lệch mà chưa xác nhận <code>confirmMismatch</code> thì chặn (<code>"identity-mismatch"</code>).</span><span data-en><b>Step 2 — Identity check:</b> cross-checks the <code>identity</code> you gave against the account <code>gh</code> is logged in as — a mismatch without <code>confirmMismatch</code> blocks the push (<code>"identity-mismatch"</code>).</span></span></li>
+              <li><span class="refuse"><span data-vi><b>Bước 3 — Fork:</b> repo thư viện là <b>chỉ đọc</b> với bạn — kể cả tạo nhánh ở đó cũng đã là thao tác ghi. Tool tìm fork của bạn, chưa có thì tạo và <b>chờ qua cửa sổ 404</b> (GitHub tạo fork bất đồng bộ; ghi ngay sẽ lỗi khó hiểu). Nếu bạn đã có repo trùng tên nhưng <b>không phải fork</b> của đúng upstream, tool từ chối (<code>"fork-name-conflict"</code>) thay vì commit nhầm vào dự án khác.</span><span data-en><b>Step 3 — Fork:</b> the library repo is <b>read-only</b> to you — even creating a branch there is a write. The tool finds your fork, creates it if absent, and <b>waits out GitHub's 404 window</b> (forking is asynchronous; writing immediately fails confusingly). If you already own a same-named repo that is <b>not a fork</b> of this upstream, it refuses (<code>"fork-name-conflict"</code>) rather than committing into the wrong project.</span></span></li>
+              <li><span data-vi><b>Bước 4 — Nhánh trong fork:</b> mỗi skill một nhánh <code>skill/&lt;tên-skill&gt;</code>, nên nhiều skill có PR độc lập cùng lúc. Nhánh mới lấy gốc từ head của <b>upstream</b>, không phải từ fork — để fork cũ không làm PR dính thêm diff lạ. Nhánh đã tồn tại thì commit chồng lên, và đó chính là cách thêm commit vào PR đang mở.</span><span data-en><b>Step 4 — Branch inside the fork:</b> one <code>skill/&lt;skill-name&gt;</code> branch per skill, so several skills can have independent PRs open at once. A new branch starts from <b>upstream's</b> head, not the fork's — so a stale fork doesn't drag unrelated diff into the PR. An existing branch is built on top of, which is what adds a commit to its open PR.</span></li>
+              <li><span data-vi><b>Bước 5-7 — Commit vào fork:</b> tạo 1 commit duy nhất, nguyên tử, qua Git Data API (mọi lệnh ghi đều nhắm vào fork, <b>không bao giờ</b> vào upstream) (blob từng file → tree → commit → cập nhật ref), kèm 1 file <code>.meta.json</code> ghi ai đăng/ai sửa/khi nào — cập nhật skill cũ thì giữ nguyên <code>uploadedBy</code>/<code>uploadedAt</code> gốc.</span><span data-en><b>Steps 5-7 — Commit into the fork:</b> builds one atomic commit via the Git Data API (every write targets the fork, <b>never</b> upstream) (blob per file → tree → commit → ref update), plus a <code>.meta.json</code> recording who uploaded/updated and when — updating an existing skill preserves the original <code>uploadedBy</code>/<code>uploadedAt</code>.</span></li>
+              <li><span class="refuse"><span data-vi><b>Bước cuối — Chống ghi đè:</b> ngay trước khi cập nhật ref, kiểm tra lại nhánh <b>trong fork</b> có bị push đè trong lúc chờ không — có thì huỷ, báo <code>"conflict"</code>, không mất dữ liệu của người kia, bảo thử lại nguyên lệnh.</span><span data-en><b>Final step — Race guard:</b> right before updating the ref, re-checks whether the branch <b>in the fork</b> moved underneath it while this push was running — if so, aborts with <code>"conflict"</code>, doesn't clobber the other person's write, and tells you to retry the whole call.</span></span></li>
+              <li><span class="ok"><span data-vi><b>Bước 8 — Mở PR:</b> tự mở pull request từ <code>&lt;fork&gt;:skill/&lt;tên&gt;</code> về nhánh mặc định của upstream, kèm điểm benchmark và người nộp. Nếu skill đó <b>đã có PR đang mở</b> thì không mở PR mới — commit vừa rồi tự nằm trong PR cũ (<code>pullRequestAction: "updated"</code>). Commit được đẩy lên fork <b>trước</b> khi mở PR, nên bước PR hỏng cũng không mất skill: kết quả kèm sẵn câu lệnh <code>gh pr create</code> để làm tay. Người bảo trì upstream review và merge — tool <b>không bao giờ tự merge</b>.</span><span data-en><b>Step 8 — Open the PR:</b> opens a pull request from <code>&lt;fork&gt;:skill/&lt;name&gt;</code> to upstream's default branch, carrying the benchmark score and submitter. If that skill <b>already has an open PR</b>, no duplicate is opened — the commit lands in the existing one (<code>pullRequestAction: "updated"</code>). The commit reaches the fork <b>before</b> the PR step, so a PR failure never loses the skill: the result carries the exact <code>gh pr create</code> command to finish by hand. An upstream maintainer reviews and merges — the tool <b>never self-merges</b>.</span></span></li>
+            </ol>
+          </div>
+        </details>
       </section>
 
       <section id="workflow" data-nav="workflow">
         <div class="breadcrumb"><span data-vi>Tool</span><span data-en>Tools</span></div>
         <h2><span data-vi>Sơ đồ quy trình các tool</span><span data-en>Workflow diagram</span></h2>
-        <p class="lead"><span data-vi>9 tool ở trên không đứng riêng lẻ — chúng nối vào nhau theo đúng 2 quy trình cố định dưới đây, tuỳ vào việc bạn đang <b>dùng</b> skill có sẵn hay <b>đóng góp</b> skill mới.</span><span data-en>The 9 tools above don't stand alone — they chain together into exactly the 2 fixed workflows below, depending on whether you're <b>using</b> an existing skill or <b>contributing</b> a new one.</span></p>
+        <p class="lead"><span data-vi>10 tool ở trên không đứng riêng lẻ — chúng nối vào nhau theo đúng 2 quy trình cố định dưới đây, tuỳ vào việc bạn đang <b>dùng</b> skill có sẵn hay <b>đóng góp</b> skill mới.</span><span data-en>The 10 tools above don't stand alone — they chain together into exactly the 2 fixed workflows below, depending on whether you're <b>using</b> an existing skill or <b>contributing</b> a new one.</span></p>
 
         <div class="flow-block" id="flow-a">
           <div class="flow-title"><span class="flow-badge" data-vi>Quy trình A</span><span class="flow-badge" data-en>Workflow A</span><span data-vi>Dùng skill có sẵn</span><span data-en>Use an existing skill</span></div>
           <div class="flow-svg-wrap">
-            <svg viewBox="0 0 760 212" role="img" aria-labelledby="flowATitle flowADesc">
+            <svg viewBox="0 0 760 250" role="img" aria-labelledby="flowATitle flowADesc">
               <title id="flowATitle"><span data-vi>Sơ đồ quy trình dùng skill có sẵn</span><span data-en>Workflow diagram for using an existing skill</span></title>
               <desc id="flowADesc"><span data-vi>Tìm skill bằng 1 trong 2 tool, kéo về, dò agent, triển khai, rồi gỡ khi không dùng nữa</span><span data-en>Find a skill with either of 2 tools, pull it, detect agents, deploy it, then remove it when no longer needed</span></desc>
               <defs>
@@ -404,6 +770,8 @@
               <path class="flow-edge" d="M380,74 L416,74" marker-end="url(#fa-arrow)"/>
               <path class="flow-edge" d="M556,74 L592,74" marker-end="url(#fa-arrow)"/>
               <path class="flow-edge dashed" d="M662,94 L662,146" marker-end="url(#fa-arrow)"/>
+              <path class="flow-edge dashed" d="M90,133 L90,171" marker-end="url(#fa-arrow)"/>
+              <path class="flow-edge dashed" d="M170,191 C205,191 205,74 240,74" marker-end="url(#fa-arrow)"/>
 
               <g class="flow-node">
                 <rect x="10" y="15" width="160" height="40" rx="9"/>
@@ -418,6 +786,12 @@
                 <text x="90" y="126" text-anchor="middle">_sources</text>
               </g>
               <text class="flow-cap" x="90" y="150" text-anchor="middle"><tspan data-vi>chưa biết repo</tspan><tspan data-en>don't know the repo</tspan></text>
+
+              <g class="flow-node optional">
+                <rect x="10" y="171" width="160" height="40" rx="9"/>
+                <text x="90" y="196" text-anchor="middle">find_skills</text>
+              </g>
+              <text class="flow-cap" x="90" y="228" text-anchor="middle"><tspan data-vi>khi 2 cách trên không ra gì</tspan><tspan data-en>when neither found it</tspan></text>
 
               <g class="flow-node">
                 <rect x="240" y="54" width="140" height="40" rx="9"/>
@@ -449,7 +823,7 @@
           <div class="flow-svg-wrap">
             <svg viewBox="0 0 760 118" role="img" aria-labelledby="flowBTitle flowBDesc">
               <title id="flowBTitle"><span data-vi>Sơ đồ quy trình đóng góp skill mới</span><span data-en>Workflow diagram for contributing a new skill</span></title>
-              <desc id="flowBDesc"><span data-vi>Kiểm tra định dạng, chấm chất lượng, đẩy lên nhánh riêng, rồi mở PR để người khác review</span><span data-en>Validate format, benchmark quality, push to its own branch, then open a PR for someone else to review</span></desc>
+              <desc id="flowBDesc"><span data-vi>Kiểm tra định dạng, chấm chất lượng, commit vào fork của bạn, rồi tự mở PR về repo gốc để người khác review</span><span data-en>Validate format, benchmark quality, commit to your fork, then automatically open a PR back to upstream for someone else to review</span></desc>
               <defs>
                 <marker id="fb-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
                   <path d="M0,0 L10,5 L0,10 z" style="fill:var(--sub)"/>
@@ -476,13 +850,13 @@
                 <rect x="396" y="15" width="174" height="40" rx="9"/>
                 <text x="483" y="39" text-anchor="middle">push_skill</text>
               </g>
-              <text class="flow-cap" x="483" y="70" text-anchor="middle"><tspan data-vi>nhánh riêng, không đụng main</tspan><tspan data-en>own branch, never main</tspan></text>
+              <text class="flow-cap" x="483" y="70" text-anchor="middle"><tspan data-vi>fork + commit vào fork</tspan><tspan data-en>forks, commits to the fork</tspan></text>
 
-              <g class="flow-node optional">
+              <g class="flow-node pass">
                 <rect x="596" y="15" width="154" height="40" rx="9"/>
-                <text x="673" y="39" text-anchor="middle">gh pr create</text>
+                <text x="673" y="39" text-anchor="middle">PR &#8594; upstream</text>
               </g>
-              <text class="flow-cap" x="673" y="70" text-anchor="middle"><tspan data-vi>người khác review</tspan><tspan data-en>someone else reviews</tspan></text>
+              <text class="flow-cap" x="673" y="70" text-anchor="middle"><tspan data-vi>tự mở, người khác review</tspan><tspan data-en>opened for you, someone else reviews</tspan></text>
             </svg>
           </div>
           <div class="flow-note"><span data-vi>Mỗi bước là 1 cổng chặn cứng — sai định dạng thì dừng ở <code>validate_skill</code>, chưa đủ bằng chứng chất lượng thì dừng ở <code>benchmark_skill</code>, không tool nào tự bỏ qua bước trước để đi tiếp. Xem chi tiết ở mục <a href="#benchmark">Chấm chất lượng skill</a>.</span><span data-en>Each step is a hard gate — a bad format stops at <code>validate_skill</code>, insufficient quality evidence stops at <code>benchmark_skill</code>; no tool skips the one before it. See <a href="#benchmark">Benchmarking a skill</a> for detail.</span></div>
@@ -525,10 +899,12 @@ libraryRemoved: true</div>
           <div class="convo" id="case-4">
             <h4><span class="num">4</span><span data-vi>Đóng góp skill bạn tự viết</span><span data-en>Contribute a skill you wrote yourself</span></h4>
             <div class="turn you"><span class="role" data-vi>Bạn gõ</span><span class="role" data-en>You type</span><span data-vi>"Đẩy skill my-new-skill của tôi lên aidev3-web/SKILL-LIB, tên GitHub tôi là ..."</span><span data-en>"Push my my-new-skill to aidev3-web/SKILL-LIB, my GitHub username is ..."</span></div>
-            <div class="turn agent"><span class="role" data-vi>Agent tự làm</span><span class="role" data-en>Agent does</span><span data-vi><code>validate_skill</code> (chặn nếu sai định dạng) → <code>benchmark_skill</code> (mở session mới thật để test trigger/kết quả/độ ổn định, không đoán điểm) → <code>push_skill</code> lên nhánh riêng, chặn nếu bằng chứng không đạt, không đụng main</span><span data-en><code>validate_skill</code> (blocks if malformed) → <code>benchmark_skill</code> (spawns real fresh sessions to test trigger/outcome/stability, no guessed scores) → <code>push_skill</code> to its own branch, blocks on failed evidence, never main</span></div>
+            <div class="turn agent"><span class="role" data-vi>Agent tự làm</span><span class="role" data-en>Agent does</span><span data-vi><code>validate_skill</code> (chặn nếu sai định dạng) → <code>benchmark_skill</code> (mở session mới thật để test trigger/kết quả/độ ổn định, không đoán điểm) → <code>push_skill</code> — fork repo, commit vào fork, tự mở PR; chặn nếu bằng chứng không đạt, repo gốc không bị ghi gì</span><span data-en><code>validate_skill</code> (blocks if malformed) → <code>benchmark_skill</code> (spawns real fresh sessions to test trigger/outcome/stability, no guessed scores) → <code>push_skill</code> — forks the repo, commits to the fork, opens the PR itself; blocks on failed evidence, upstream is never written to</span></div>
             <div class="turn result"><span class="role" data-vi>Kết quả</span><span class="role" data-en>Result</span>status: "pushed"
-commitUrl: github.com/.../commit/a1b2c3d</div>
-            <div class="turn you"><span class="role" data-vi>Bước cuối</span><span class="role" data-en>Last step</span><span data-vi>Nói "mở PR giúp tôi" — agent chạy <code>gh pr create</code>, người khác review rồi mới merge</span><span data-en>Say "open a PR for me" — the agent runs <code>gh pr create</code>, someone else reviews and merges</span></div>
+forkFullName: you/SKILL-LIB
+pullRequestUrl: github.com/aidev3-web/SKILL-LIB/pull/9
+pullRequestAction: "created"</div>
+            <div class="turn agent"><span class="role" data-vi>Agent tự làm</span><span class="role" data-en>Agent does</span><span data-vi><code>push_skill</code> đã tự mở PR rồi — trả về luôn link. Bạn không cần gõ <code>gh pr create</code>; chỉ chờ người bảo trì review và merge</span><span data-en><code>push_skill</code> already opened the PR and returned its link. You never run <code>gh pr create</code> — just wait for a maintainer to review and merge</span></div>
           </div>
 
         </div>
@@ -580,7 +956,7 @@ commitUrl: github.com/.../commit/a1b2c3d</div>
         <div class="tips4">
           <div class="tip-card" id="issue-1">
             <h4><span data-vi>1. Repo private không đọc được</span><span data-en>1. Private repo can't be read</span></h4>
-            <div class="badrow"><span class="x" data-vi>Nguyên nhân</span><span class="x" data-en>Cause</span> <span data-vi>Account gh chưa là collaborator trên repo</span><span data-en>The gh account isn't a collaborator on the repo</span></div>
+            <div class="badrow"><span class="x" data-vi>Nguyên nhân</span><span class="x" data-en>Cause</span> <span data-vi>Repo private mà account gh chưa được thêm collaborator (để <b>đọc</b>). Riêng <code>push_skill</code> thì <b>không</b> cần quyền ghi — nó fork rồi mở PR</span><span data-en>A private repo the gh account was never added to (for <b>reading</b>). <code>push_skill</code> itself needs <b>no</b> write access — it forks and opens a PR</span></div>
             <div class="okrow"><span class="v" data-vi>Xử lý</span><span class="v" data-en>Fix</span> <span data-vi>Kiểm tra <code>gh auth status</code>, nhờ admin thêm collaborator</span><span data-en>Check <code>gh auth status</code>, ask an admin to add you as collaborator</span></div>
           </div>
           <div class="tip-card" id="issue-2">
@@ -635,7 +1011,7 @@ commitUrl: github.com/.../commit/a1b2c3d</div>
       </div>
       <div class="toc-group" data-for="tools">
         <ul>
-          <li><a href="#tools" data-toc-link><span data-vi>Danh sách 9 tool</span><span data-en>All 9 tools</span></a></li>
+          <li><a href="#tools" data-toc-link><span data-vi>Danh sách 10 tool</span><span data-en>All 10 tools</span></a></li>
         </ul>
       </div>
       <div class="toc-group" data-for="workflow">

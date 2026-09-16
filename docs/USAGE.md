@@ -35,6 +35,68 @@ It only searches the repos listed in `sources.json` (shared) and
 `status: "error"` (e.g. you're not a collaborator on it) is skipped, not
 fatal — the rest still search normally.
 
+## When the curated list has nothing — `find_skills`
+
+`search_all_sources` only ever sees the repos in `sources.json` /
+`sources.local.json`. When it comes back empty, `find_skills` searches the wider
+ecosystem through the skills.sh registry.
+
+**Phrase it as a sentence.** The registry matches multi-word queries
+semantically; a single word falls back to fuzzy name matching.
+
+```json
+{ "query": "keep a coding agent from adding features nobody asked for", "limit": 8 }
+```
+Output:
+```json
+{
+  "searchType": "semantic",
+  "totalMatched": 7,
+  "unresolved": [],
+  "items": [
+    {
+      "owner": "waynesutton", "repo": "convexskills",
+      "path": "skills/avoid-feature-creep",
+      "name": "avoid-feature-creep",
+      "installs": 1270,
+      "description": "Prevent feature creep when building software, apps, and AI-powered products...",
+      "htmlUrl": "https://github.com/waynesutton/convexskills/blob/main/skills/avoid-feature-creep/SKILL.md"
+    }
+  ]
+}
+```
+
+Why sentences beat keywords here: none of those results contain the phrase
+"over-engineering" — they say *"feature creep"* instead. A keyword search misses
+them; a semantic one doesn't.
+
+`path` is what `pull_skill` needs, so a hit can be handed straight on:
+```json
+{ "owner": "waynesutton", "repo": "convexskills", "paths": ["skills/avoid-feature-creep"] }
+```
+
+### Reading the output honestly
+
+- **`installs` is popularity, not review.** Nobody audited these. Run
+  `validate_skill` and then `benchmark_skill` before using or pushing one.
+- **`searchType`** says how the registry read your query. `"fuzzy"` means it
+  matched names only — rephrase as a sentence to get `"semantic"`.
+- **`unresolved`** lists hits whose folder couldn't be located on GitHub (repo
+  private, renamed, or the folder isn't named after the skill). Those come back
+  with `path: null` and cannot be pulled directly.
+- **Check for an upstream before pulling.** Popular skills are often indexed
+  under a redistributor rather than their origin, and the copy may carry no
+  license even when the original is MIT. If the skill's frontmatter names an
+  `upstream`, pull from there instead.
+
+**Faster, registry-only:** `resolveDetails: false` skips the GitHub lookup
+(~1.6s instead of ~5.6s for 8 hits) and returns `path` and `description` as
+`null` — useful when you only want names and install counts.
+
+**If it fails**, the error names the cause and reminds you `search_all_sources`
+still works, since that one reads GitHub directly and doesn't depend on
+skills.sh at all.
+
 ## A first walkthrough — pulling and deploying a skill
 
 **1. "Find me skills about code review in anthropics/skills"**
@@ -167,13 +229,34 @@ as skill content). Pass that same `results` object as `push_skill`'s
 { "skillPath": "/home/you/.skill-library/my-new-skill", "owner": "aidev3-web", "repo": "SKILL-LIB", "identity": "your-github-username", "benchmark": { "layer0Passed": true, "trigger": { "...": "..." }, "outcome": { "...": "..." }, "stability": { "...": "..." }, "edgeCase": { "score": 17, "notes": "..." }, "scope": { "score": 18, "notes": "..." }, "score": 88, "summary": "no concerns" } }
 ```
 ```json
-{ "status": "pushed", "skillName": "my-new-skill", "isUpdate": false, "commitSha": "a1b2c3d", "commitUrl": "https://github.com/aidev3-web/SKILL-LIB/commit/a1b2c3d", "filesPushed": ["my-new-skill/SKILL.md", "my-new-skill/.meta.json"], "warnings": [] }
+{
+  "status": "pushed", "skillName": "my-new-skill", "isUpdate": false,
+  "commitSha": "d8ee30e", "commitUrl": "https://github.com/you/SKILL-LIB/commit/d8ee30e",
+  "forkFullName": "you/SKILL-LIB", "forkBranch": "skill/my-new-skill", "forkCreated": true,
+  "pullRequestUrl": "https://github.com/aidev3-web/SKILL-LIB/pull/9",
+  "pullRequestNumber": 9, "pullRequestAction": "created",
+  "filesPushed": ["my-new-skill/SKILL.md", "my-new-skill/.meta.json"],
+  "warnings": ["You had no fork of aidev3-web/SKILL-LIB — created you/SKILL-LIB for this push."]
+}
 ```
+
+**Note where the commit landed.** `owner`/`repo` name the *upstream* library,
+which is read-only to you — nothing is ever written there. The commit goes to
+`forkFullName` (your own fork, created on first use), on one branch per skill,
+and reaches upstream only as a pull request for a maintainer to review.
+
+**Pushing the same skill again reuses its PR.** The second push reports
+`pullRequestAction: "updated"` and the same `pullRequestNumber`, adding a commit
+to the open PR instead of opening a duplicate.
+
 `status` can also come back `validation-failed` (didn't pass the same checks
 as above), `benchmark-too-low` (Layer 0 failed, a Layer 1-3 real test failed, or the score is under 70/100 —
-see Troubleshooting), `identity-mismatch` (the `identity` you gave doesn't
-match the account `gh` is logged in as — see Troubleshooting), or `conflict`
-(someone else pushed to that branch while this was running — just retry).
+see Troubleshooting), `secrets-detected` / `dangerous-instructions-detected`
+(see Troubleshooting), `identity-mismatch` (the `identity` you gave doesn't
+match the account `gh` is logged in as — see Troubleshooting), `fork-name-conflict`
+(you own a same-named repo that isn't a fork of this upstream — see
+Troubleshooting), or `conflict` (something else pushed to your fork's branch
+while this was running — just retry).
 
 See the root README's ["Recommended workflow for publishing a locally-created
 skill"](../README.md#recommended-workflow-for-publishing-a-locally-created-skill)
@@ -187,7 +270,12 @@ for the full push → verify → PR → review flow this feeds into.
 | `GitHub CLI is installed but not logged in` | Never ran `gh auth login`, or logged in on a different machine/account | `gh auth login` in a terminal, then restart the agent |
 | Error mentions a stale `GITHUB_TOKEN`/`GH_TOKEN` shadowing the login | An old env var from a token-based setup (this project's own past, or an unrelated tool) is still set — `gh` prioritizes it over your real login even when it's expired/invalid | Unset it: PowerShell `Remove-Item Env:\GITHUB_TOKEN` (session-only) or `[Environment]::SetEnvironmentVariable("GITHUB_TOKEN",$null,"User")` (permanent); bash `unset GITHUB_TOKEN`. Close and reopen the terminal/agent afterward — an already-running process keeps the old value in memory |
 | `GitHub API GET ... -> 404` when searching/pulling a private repo | You're not a collaborator on that repo — GitHub returns 404 (not 403) for a private repo you can't see, by design | Ask a repo admin to add your GitHub account as a collaborator |
-| `GitHub API POST/PATCH ... -> 403` on `push_skill` | You're a collaborator with only Read access, not Write | Ask a repo admin to upgrade your role to Write (or Contents: Write on the specific repo) |
+| `GitHub API POST/PATCH ... -> 403` on `push_skill` | A write was attempted against a repo you can't write to. `push_skill` never writes to the upstream library (it forks and opens a PR), so this means the write hit **your own fork** — usually because your `gh` login lost access to it, or the fork was deleted mid-push | Check `gh auth status` is the account that owns the fork, then retry. You do **not** need collaborator rights on the upstream repo |
+| `push_skill` returns `fork-name-conflict` | You already own a repo with the library's name, but it isn't a fork of that upstream — committing into it would bury the skill in an unrelated project | Rename or delete that repo, then retry. The tool refuses rather than guessing |
+| `push_skill` returns `dangerous-instructions-detected` | `SKILL.md` contains an instruction pattern consistent with data theft or destruction — an unscoped destructive command (`rm -rf ~`), or a credential path (`~/.ssh`, `.env`) named alongside a network-send call in the same file | Read the listed findings and remove the pattern. Scoped commands like `rm -rf dist/` and plain `curl` deploys do not trip this. There is no override flag |
+| `find_skills` errors with "Could not reach skills.sh" / "endpoint may have changed" | The registry is down, or its undocumented `/api/search` endpoint moved | Use `search_all_sources` meanwhile — it reads GitHub directly and doesn't depend on skills.sh. Set `SKILLS_REGISTRY_URL` if a mirror exists |
+| `find_skills` returns hits with `path: null`, listed in `unresolved` | The skill's repo is private, was renamed, or its folder isn't named after the skill, so its real path couldn't be found on GitHub | Open the repo by hand to find the folder, then call `pull_skill` with that path |
+| `find_skills` returns `searchType: "fuzzy"` and poor results | You passed a single word, so the registry matched names only instead of meaning | Rephrase as a sentence describing the job, e.g. "keep a coding agent from adding features nobody asked for" |
 | `push_skill` returns `identity-mismatch` | The `identity` value you gave doesn't match the login/name/email of the account `gh` is logged in as | Fix the `identity` value, or pass `confirmMismatch: true` if you're deliberately pushing on someone else's behalf |
 | `push_skill` returns `conflict` | Someone else pushed to that branch while this call was running | Just retry the same call — nothing was lost, the unreferenced commit is harmless |
 | `push_skill` returns `secrets-detected` | The skill folder holds a file that looks like a credential (`.env`, `*.pem`, `id_rsa`, `credentials.json`, …) and would have been published to a shared repo | Move it out of the skill folder, or rename to `.env.example`/`.sample` if it's a template. There is no override flag — a pushed secret has to be treated as leaked |

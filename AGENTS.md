@@ -62,14 +62,37 @@ file backing that claim.
   checks `gh` is installed and authenticated before the first real call.
   Reading a private skill repo requires the logged-in account to be a
   **collaborator** on it (ask a repo admin to add you) — this is enforced
-  by GitHub itself, not by code here. `push_skill` additionally needs
-  write access on the target repo.
-  Optional env var: `SKILL_LIBRARY_PATH` (default `~/.skill-library`).
+  by GitHub itself, not by code here. `push_skill` needs no write access on
+  the library repo: it forks upstream under the logged-in account, commits to
+  a branch in that fork, and opens a PR back. Upstream is read-only on every
+  code path — if you add a write call there, that is a bug.
+  Optional env vars: `SKILL_LIBRARY_PATH` (default `~/.skill-library`),
+  `SKILLS_REGISTRY_URL` (see below).
+- `find_skills` is the ONLY tool with a non-GitHub dependency: it searches
+  the skills.sh registry via `lib/registry.js`. Three rules for anyone
+  touching it:
+  1. **The endpoint is undocumented.** skills.sh publishes `/api/v1/*`, which
+     requires a Vercel OIDC token and answers `401`. We call `/api/search`,
+     which is public and needs no credential — that is the only reason it fits
+     this project's no-tokens rule, and it is also why it may vanish without
+     notice. Treat every failure as expected: a `RegistryError` with a message
+     a user can act on, never a throw that reaches the transport.
+  2. **Never add a credential to make a richer endpoint work.** If `/api/search`
+     dies, the answer is a mirror via `SKILLS_REGISTRY_URL`, or falling back to
+     GitHub code search — not an API key. `lib/github.js` still exports
+     `searchCode`, `getRateLimitStatus` and `isRateLimitError`, and
+     `lib/util.js` still exports the relevance/cursor helpers, all tested: they
+     are the ready-made pieces for that fallback. Nothing calls them today.
+  3. **Install counts are popularity, not review.** Never let a high install
+     count relax a gate; `push_skill`'s benchmark threshold applies identically
+     to a registry find and a hand-written skill.
 - Test suite: `npm test` runs `node --test` against `test/*.test.js`.
   `test/github.test.js` never shells out to a real `gh` — it swaps in a
   fake runner via `__setGhRunner()` (exported from `lib/github.js` for
-  this purpose only). Keep using that seam for new GitHub-call tests
-  instead of mocking `child_process` directly.
+  this purpose only). `lib/registry.js` has the same seam, `__setFetch()`,
+  used by `test/registry.test.js`. Keep using those seams for new tests
+  instead of mocking `child_process` or `globalThis.fetch` directly, and
+  never let a test reach the real network.
 - There is no lint/typecheck script configured. At minimum, run
   `node --check index.js` and `node --check lib/<file>.js` for every
   file you touched before committing — a syntax error must never reach
