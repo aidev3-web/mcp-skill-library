@@ -24,7 +24,7 @@ function sandbox(name) {
 // so these exercise the same code path a client does — an in-process import
 // would skip the MCP layer's own argument handling.
 async function connect(libRoot, extraEnv = {}) {
-  const env = { ...process.env, SKILL_LIBRARY_PATH: libRoot, ...extraEnv };
+  const env = { ...process.env, SKILL_LIBRARY_PATH: libRoot, SKILL_LIB_AUTO_HOOK: '0', ...extraEnv };
   delete env.GITHUB_TOKEN;
   delete env.GH_TOKEN;
   const client = new Client({ name: 'security-test', version: '0.0.1' });
@@ -461,6 +461,45 @@ test('benchmark_skill writes an HTML report as a sibling of the skill folder, no
     const html = fs.readFileSync(reportPath, 'utf8');
     assert.match(html, /PASS — ready to push/);
     assert.match(html, /reported-skill/);
+  } finally {
+    await client.close();
+  }
+});
+
+test('check_skill_update, update_skill and decline_update refuse a traversing skillName', async () => {
+  const lib = sandbox('update-traversal');
+  const client = await connect(lib);
+  try {
+    for (const name of ['check_skill_update', 'update_skill', 'decline_update']) {
+      const res = await client.callTool({ name, arguments: { skillName: '../../Documents' } });
+      assert.equal(res.isError, true, `${name} must refuse`);
+      assert.match(textOf(res), /Invalid skillName/, name);
+    }
+  } finally {
+    await client.close();
+  }
+});
+
+test('check_skill_update on a skill that was never pulled through this server is silent', async () => {
+  const lib = sandbox('update-untracked');
+  fs.mkdirSync(path.join(lib, 'hand-made'));
+  fs.writeFileSync(path.join(lib, 'hand-made', 'SKILL.md'), '---\nname: hand-made\ndescription: x\n---\n');
+  const client = await connect(lib);
+  try {
+    const res = await client.callTool({ name: 'check_skill_update', arguments: { skillName: 'hand-made' } });
+    assert.notEqual(res.isError, true);
+    assert.match(textOf(res), /untracked/);
+    assert.match(textOf(res), /do not mention/);
+  } finally {
+    await client.close();
+  }
+});
+
+test('the server tells the agent to check a skill before using it (instructions)', async () => {
+  const lib = sandbox('update-instructions');
+  const client = await connect(lib);
+  try {
+    assert.match(client.getInstructions() || '', /check_skill_update/);
   } finally {
     await client.close();
   }
