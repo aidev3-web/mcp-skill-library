@@ -94,7 +94,7 @@ test('find_skills error path still satisfies its declared outputSchema', async (
       // Point the registry at a closed port so the fetch fails immediately.
       // Node's fetch ignores https_proxy, so shadowing the URL is the only
       // reliable way to keep this test off the real network.
-      env: { ...process.env, SKILLS_REGISTRY_URL: 'http://127.0.0.1:9/api/search' },
+      env: { ...process.env, SKILLS_REGISTRY_URL: 'http://127.0.0.1:9/api/search', SKILL_LIB_AUTO_HOOK: '0' },
     }),
   );
   const res = await client.callTool({ name: 'find_skills', arguments: { query: 'anything', limit: 5 } });

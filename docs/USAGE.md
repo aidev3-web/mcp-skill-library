@@ -152,6 +152,84 @@ the files instead — check `note`), `skipped-exists` (already there, nothing
 changed), or `error` (check the `error` field for why). **Restart your agent**
 after this — skill folders are only re-scanned on startup.
 
+## Updating skills you already pulled
+
+`pull_skill` now records where each skill came from in a `.source.json` next to
+its `SKILL.md`: the repo, branch and folder, plus the git blob id of every file
+it wrote. That record is what makes updates possible; it is never pushed back
+(`push_skill` skips it). Skills pulled before this feature have no record, so
+they are left alone until you pull them again once.
+
+**What you see.** Nothing, most of the time. When an agent is about to use a
+skill that has a `.source.json`, the server's instructions tell it to call
+`check_skill_update` first, once per session per skill. If the skill is up to
+date, or you already declined this version, the agent says nothing. If a newer
+version exists, the agent tells you what changed, says whether it looks relevant
+to the project you are working on, and asks whether to update:
+
+- **Yes** -> `update_skill` downloads only the files that changed, checks the
+  result the same way `validate_skill` does, keeps the old version under
+  `<library>/.history/<skill>/<timestamp>-<id>/`, and applies the change in
+  place (the folder is never renamed, so the links in your agents' skill
+  folders keep working). A skill's `agents/*.md` files are copied into Claude
+  Code's `agents/` folder too; an agent file you edited there is left as it is
+  and reported.
+- **No** -> `decline_update` remembers this exact upstream state. You are asked
+  again only when the skill changes further.
+
+**Your own edits are safe.** If you edited a file that upstream also changed,
+`update_skill` stops and lists it. Nothing is overwritten unless you agree to
+`force`, and even then the previous version is kept in `.history`. A skill that
+disappeared upstream is reported, never deleted. `dryRun: true` lists what would
+change and touches nothing.
+
+**The skill hook: installed for you when you install this server.** The server's
+instructions only ask the agent to check, and an agent can occasionally skip
+that. So the first time this server starts on a machine that has Claude Code, it
+also registers `hook/skill-update-hook.js` as a Claude Code `PreToolUse` hook
+scoped to the `Skill` tool, and the check then always happens. The hook runs only
+when a skill is about to be used (a `/slash` command or the model's own choice;
+both go through the Skill tool), never at plain session start, and it prints
+something only when that skill has a newer version you have not been asked about
+this session. It takes effect from your next Claude Code session.
+
+Because this edits `~/.claude/settings.json` (or `$CLAUDE_CONFIG_DIR/settings.json`),
+it is deliberately conservative:
+
+- it only adds its own single entry; every other setting and hook stays exactly
+  as it was, and the previous file is copied to `settings.json.bak-<time>` first;
+- it says what it did on stderr (`[mcp-skill-lib] installed the skill-update hook
+  in …`) together with how to turn it off;
+- it is done once: if you remove the hook, it is never put back. It only keeps
+  its own entry pointing at the current install if the package moves;
+- a settings file that is not valid JSON is never touched, and a machine without
+  Claude Code is skipped;
+- **opt out** before the first start with `SKILL_LIB_AUTO_HOOK=0` in the
+  server's environment (for example in the MCP registration's `env`).
+
+To take the hook out later, or to manage it by hand:
+
+```bash
+node hook/install-hook.js                    # shows what it would change, writes nothing
+node hook/install-hook.js --apply            # installs it
+node hook/install-hook.js --remove --apply   # removes it (and it stays removed)
+```
+
+(`--settings <file>` targets another settings file.) The hook reads the skill name from the hook input, ignores skills that were not
+pulled through this server, caches its verdict for six hours per skill (so most
+uses cost nothing), asks at most once per session, and on any error stays silent
+and exits 0. When it does speak, it hands the agent the same "what changed, ask
+the user, then `update_skill` or `decline_update`" text as `check_skill_update`,
+so the MCP server must also be registered. Set `SKILL_LIBRARY_PATH` for the hook
+too if you moved the library.
+
+**Limits.** Without the hook this relies on the agent following the server's
+instructions, so an agent can occasionally skip the check. Only skills
+pulled through this server are tracked. A skill loaded before the update keeps
+running its old text until the next session. Results are cached for six hours
+per skill while the server runs, and a failed check (offline, `gh` missing, rate
+limited) is silent and never blocks the skill.
+
 ## Removing a skill you no longer want
 
 **"Remove code-review, I don't use it anymore"** → agent should confirm

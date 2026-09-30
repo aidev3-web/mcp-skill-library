@@ -24,7 +24,10 @@ import {
   createFork,
   findOpenPull,
   createPull,
+  getCommitsForPath,
 } from './lib/github.js';
+import { ensureHook, claudeConfigDir } from './lib/autohook.js';
+import { SOURCE_FILE, writeSource, checkForUpdate, performUpdate, recordDecline, syncAgentFiles, describeUpdate } from './lib/updates.js';
 import { parseFrontmatter } from './lib/frontmatter.js';
 import { detectAgents, deploySkill, removeSkill, findRemainingDeployments } from './lib/agents.js';
 import { validateSkillFolder } from './lib/validate.js';
@@ -50,12 +53,12 @@ const TREE_TTL_MS = 5 * 60 * 1000;
 // the first key is the oldest.
 const TREE_CACHE_MAX = 24;
 
-async function loadTree(owner, repo, ref) {
+async function loadTree(owner, repo, ref, { fresh = false } = {}) {
   await ensureGhReady();
   const resolvedRef = ref || (await getDefaultBranch(owner, repo));
   const key = `${owner}/${repo}@${resolvedRef}`;
   const cached = treeCache.get(key);
-  if (cached && Date.now() - cached.at < TREE_TTL_MS) return { ...cached, ref: resolvedRef };
+  if (!fresh && cached && Date.now() - cached.at < TREE_TTL_MS) return { ...cached, ref: resolvedRef };
   const { tree, truncated } = await getRecursiveTree(owner, repo, resolvedRef);
   const entry = { at: Date.now(), tree, truncated };
   treeCache.delete(key); // re-insert so a refreshed entry counts as newest
@@ -124,7 +127,42 @@ function loadSources() {
   return sources;
 }
 
-const server = new McpServer({ name: 'mcp-skill-lib', version: '0.1.0' });
+// Server-level instructions are shown to the model when this server connects.
+// They are how "check the skill I am about to use" works without a hook: the MCP
+// server cannot see which skill the agent starts, so the agent is told to ask.
+// hook/skill-update-hook.js is the optional, certain version of the same check.
+const SERVER_INSTRUCTIONS = [
+  'Skills pulled through this server carry a ".source.json" file in their folder.',
+  'Before you use such a skill, call check_skill_update with the skill\'s folder name, once per session per skill. Do it silently. If a hook already told you this session that the skill has a newer version, do not check again.',
+  'If the result says there is nothing to report (up to date, declined, untracked, removed upstream, or an error), say nothing about it and carry on with the skill.',
+  'Only when it reports a newer version: tell the user briefly what changed (use the commit messages and file list), say whether the change looks relevant to what they are working on in this project, and ask whether to update.',
+  'If they agree, call update_skill. If they decline, call decline_update so they are not asked again until the skill changes further. Never update without their agreement.',
+].join(' ');
+
+const server = new McpServer({ name: 'mcp-skill-lib', version: '0.1.0' }, { instructions: SERVER_INSTRUCTIONS });
+
+// Result of the last check per skill, so repeated uses in one session do not
+// hit GitHub again. Cleared for a skill when it is updated or declined.
+const UPDATE_CHECK_TTL_MS = 6 * 60 * 60 * 1000;
+const updateCheckCache = new Map(); // skillName -> { at, check }
+
+const updateDeps = {
+  loadTree: (owner, repo, ref) => loadTree(owner, repo, ref),
+  getCommits: (owner, repo, ref, folder) => getCommitsForPath(owner, repo, ref, folder),
+  fetchBlob: (owner, repo, sha) => getBlobBytes(owner, repo, sha),
+};
+
+// Claude Code agent folders (<host>/agents) next to skill folders where this
+// skill is deployed; agent definition files are copied there, not linked.
+function agentDirsForDeployedSkill(skillName, cwd) {
+  const dirs = [];
+  for (const a of detectAgents(cwd || process.cwd())) {
+    if (a.agent !== 'claude-code' || !a.agentPresent) continue;
+    if (!fs.existsSync(path.join(a.skillsDir, skillName))) continue;
+    dirs.push(path.join(path.dirname(a.skillsDir), 'agents'));
+  }
+  return [...new Set(dirs)];
+}
 
 server.registerTool(
   'search_remote_skills',
@@ -454,7 +492,7 @@ server.registerTool(
     },
   },
   async ({ owner, repo, ref, skillPaths }) => {
-    const { tree } = await loadTree(owner, repo, ref);
+    const { tree, ref: resolvedRef } = await loadTree(owner, repo, ref);
     const pulled = [];
     for (const skillPath of skillPaths) {
       const prefix = `${skillPath}/`;
@@ -505,6 +543,30 @@ server.registerTool(
       if (!fm.description) warnings.push('SKILL.md frontmatter is missing "description"');
       const extraKeys = Object.keys(fm).filter((k) => k !== 'name' && k !== 'description');
       if (extraKeys.length) warnings.push(`frontmatter has agent-specific keys that won't port cleanly: ${extraKeys.join(', ')}`);
+      // Remember where this came from and the exact blob of every file written,
+      // so check_skill_update can later tell what changed upstream and whether
+      // the user edited anything locally. Best effort: never fail a pull on it.
+      try {
+        let commit = null;
+        try {
+          commit = (await getCommitsForPath(owner, repo, resolvedRef, skillPath, 1))[0]?.sha ?? null;
+        } catch {
+          // the commit id is informational only
+        }
+        writeSource(destRoot, {
+          owner,
+          repo,
+          ref: resolvedRef,
+          path: skillPath,
+          commit,
+          pulledAt: new Date().toISOString(),
+          declinedSignature: null,
+          files: Object.fromEntries(files.map((f) => [f.path.slice(prefix.length), f.sha])),
+        });
+        updateCheckCache.delete(folderName);
+      } catch (err) {
+        warnings.push(`could not record ${SOURCE_FILE} (update checks will skip this skill): ${String(err?.message || err)}`);
+      }
       pulled.push({ path: skillPath, name: fm.name || folderName, localPath: destRoot, status: 'pulled', warnings });
     }
     // Same reasoning as search_remote_skills: list names/warnings in the text
@@ -583,6 +645,26 @@ server.registerTool(
     if (targets?.length) agents = agents.filter((a) => targets.includes(a.agent));
     if (scopes?.length) agents = agents.filter((a) => scopes.includes(a.scope));
     const results = deploySkill(sourceDir, agents);
+    // Agent definition files (<skill>/agents/*.md) are copied, not linked, into
+    // Claude Code's agents/ folder — a skill that dispatches named subagents
+    // needs them there. Files the user edited there are left alone.
+    try {
+      const agentDirs = agentDirsForDeployedSkill(skillName, cwd).filter((d) =>
+        agents.some((a) => a.agent === 'claude-code' && path.join(path.dirname(a.skillsDir), 'agents') === d),
+      );
+      for (const r of syncAgentFiles(sourceDir, agentDirs)) {
+        results.push({
+          agent: 'claude-code-agents',
+          scope: 'copy',
+          skillsDir: r.dir,
+          status: `agent-file-${r.status}`,
+          path: r.path,
+          ...(r.status === 'skipped-edited' ? { note: `${r.file} differs from this skill's version (your own edit?) — left as is` } : {}),
+        });
+      }
+    } catch (err) {
+      results.push({ agent: 'claude-code-agents', scope: 'copy', skillsDir: '', status: 'error', error: String(err?.message || err) });
+    }
     // Same reasoning as the other tools: list per-agent status/notes in the
     // text block, not just a count — a "deployed-copy" fallback especially
     // needs to be visible to whoever/whatever is reading the response.
@@ -598,6 +680,151 @@ server.registerTool(
       content: [{ type: 'text', text: results.length ? `${summary}\n\n${listing}` : summary }],
       structuredContent: { results },
     };
+  },
+);
+
+const QUIET = 'Nothing to report to the user — do not mention this check, just continue with the skill.';
+
+server.registerTool(
+  'check_skill_update',
+  {
+    description:
+      'Silently check whether ONE skill that was pulled through this server has a newer version upstream. Call it before you use a skill (once per session per skill). It compares the files recorded when the skill was pulled with the current ones on GitHub. When nothing needs reporting it says so and you must stay silent; only when a newer version exists does it return what changed and what to ask the user. Skills without a .source.json (not pulled through this server), skills the user already declined at this version, and network failures all count as nothing to report.',
+    inputSchema: {
+      skillName: z.string().describe('Folder name of the skill in SKILL-LIB/ (the skill\'s name)'),
+    },
+  },
+  async ({ skillName }) => {
+    const skillDir = resolveSkillDir(skillName);
+    if (!skillDir) return { content: [{ type: 'text', text: BAD_SKILL_NAME_MSG }], isError: true };
+    if (!fs.existsSync(path.join(skillDir, 'SKILL.md'))) {
+      return { content: [{ type: 'text', text: `No skill folder for "${skillName}" in ${LIBRARY_ROOT}. ${QUIET}` }] };
+    }
+    const cached = updateCheckCache.get(skillName);
+    let check = cached && Date.now() - cached.at < UPDATE_CHECK_TTL_MS ? cached.check : null;
+    if (!check) {
+      try {
+        check = await checkForUpdate(skillDir, updateDeps);
+      } catch (err) {
+        // Offline, no gh, rate limited: a skill must never be blocked or made noisy by this.
+        return { content: [{ type: 'text', text: `Could not check for updates (${String(err?.message || err).split('\n')[0]}). ${QUIET}` }] };
+      }
+      updateCheckCache.set(skillName, { at: Date.now(), check });
+    }
+    if (check.status !== 'update-available') {
+      return { content: [{ type: 'text', text: `${check.status}. ${QUIET}` }], structuredContent: { status: check.status } };
+    }
+    return {
+      content: [{ type: 'text', text: describeUpdate(skillName, check) }],
+      structuredContent: { status: check.status, diff: check.diff, conflicts: check.conflicts, commits: check.commits },
+    };
+  },
+);
+
+server.registerTool(
+  'update_skill',
+  {
+    description:
+      'Update ONE skill pulled through this server to its newest upstream version. Only call this after the user agreed to the update (check_skill_update tells you what to ask). Downloads the changed files, validates the result, keeps the previous version under <library>/.history, and re-syncs any agents/*.md files into Claude Code\'s agents folder. Files the user edited locally are never overwritten unless force is true — ask before forcing. dryRun lists what would change without touching anything.',
+    inputSchema: {
+      skillName: z.string().describe('Folder name of the skill in SKILL-LIB/'),
+      dryRun: z.boolean().optional().default(false).describe('Only report what would change'),
+      force: z.boolean().optional().default(false).describe('Overwrite files the user edited locally (the previous version is still kept in .history). Ask the user first.'),
+      cwd: z.string().optional().describe('Project directory, used to find project-scoped agent folders'),
+    },
+  },
+  async ({ skillName, dryRun, force, cwd }) => {
+    const skillDir = resolveSkillDir(skillName);
+    if (!skillDir) return { content: [{ type: 'text', text: BAD_SKILL_NAME_MSG }], isError: true };
+    if (!fs.existsSync(path.join(skillDir, 'SKILL.md'))) {
+      return { content: [{ type: 'text', text: `No skill "${skillName}" in ${LIBRARY_ROOT}. Run pull_skill first.` }], isError: true };
+    }
+    let check;
+    try {
+      check = await checkForUpdate(skillDir, {
+        loadTree: (o, r, ref) => loadTree(o, r, ref, { fresh: true }),
+        getCommits: updateDeps.getCommits,
+        fetchBlob: updateDeps.fetchBlob,
+        ignoreDeclined: true, // the user is asking for it now, whatever they said before
+      });
+    } catch (err) {
+      return { content: [{ type: 'text', text: `Could not reach GitHub: ${String(err?.message || err)}` }], isError: true };
+    }
+    if (check.status !== 'update-available') {
+      const why = {
+        untracked: 'this skill was not pulled through this server (no .source.json) — pull it again with pull_skill to enable updates.',
+        'up-to-date': 'already up to date.',
+        'removed-upstream': 'the skill folder no longer exists upstream — nothing was changed or deleted.',
+      }[check.status] || check.status;
+      return { content: [{ type: 'text', text: `Nothing to update: ${why}` }], structuredContent: { status: check.status } };
+    }
+    const res = await performUpdate(skillDir, {
+      check,
+      fetchBlob: getBlobBytes,
+      historyRoot: path.join(LIBRARY_ROOT, '.history'),
+      force,
+      dryRun,
+    });
+    if (res.status === 'conflict') {
+      return {
+        content: [{ type: 'text', text: `Not updated: you edited ${res.conflicts.join(', ')} locally and upstream changed it too. Nothing was overwritten. Ask the user; to overwrite anyway call update_skill with force true (the previous version is kept in .history).` }],
+        structuredContent: { status: 'conflict', conflicts: res.conflicts },
+      };
+    }
+    if (res.status === 'invalid') {
+      return { content: [{ type: 'text', text: `Not updated: the new upstream version fails validation (${res.issues.join('; ')}). The skill was left as it was.` }], isError: true, structuredContent: { status: 'invalid' } };
+    }
+    if (res.status === 'error') {
+      return { content: [{ type: 'text', text: `Not updated: ${res.error}` }], isError: true, structuredContent: { status: 'error' } };
+    }
+    const planText = `${res.plan.changed.length} changed, ${res.plan.added.length} added, ${res.plan.removed.length} removed`;
+    if (res.status === 'dry-run') {
+      return {
+        content: [{ type: 'text', text: `Dry run for "${skillName}": ${planText}.${res.conflicts.length ? ` Locally edited and would need force: ${res.conflicts.join(', ')}.` : ''}` }],
+        structuredContent: { status: 'dry-run', plan: res.plan },
+      };
+    }
+    updateCheckCache.delete(skillName);
+    let agentLines = '';
+    try {
+      const synced = syncAgentFiles(skillDir, agentDirsForDeployedSkill(skillName, cwd), { oldHashes: check.source.files });
+      if (synced.length) agentLines = '\n\nAgent files:\n' + synced.map((r) => `- ${r.file}: ${r.status}`).join('\n');
+    } catch (err) {
+      agentLines = `\n\nAgent files could not be synced: ${String(err?.message || err)}`;
+    }
+    return {
+      content: [{ type: 'text', text: `Updated "${skillName}" (${planText}). Previous version kept at ${res.backup}. Skills already loaded in this session may only pick up the new version in the next session.${agentLines}` }],
+      structuredContent: { status: 'updated', plan: res.plan, backup: res.backup },
+    };
+  },
+);
+
+server.registerTool(
+  'decline_update',
+  {
+    description:
+      'Record that the user does NOT want the currently available update of ONE skill. check_skill_update then stays silent for that skill until upstream changes again. Call this when the user says no to an update it offered.',
+    inputSchema: {
+      skillName: z.string().describe('Folder name of the skill in SKILL-LIB/'),
+    },
+  },
+  async ({ skillName }) => {
+    const skillDir = resolveSkillDir(skillName);
+    if (!skillDir) return { content: [{ type: 'text', text: BAD_SKILL_NAME_MSG }], isError: true };
+    let signature = updateCheckCache.get(skillName)?.check?.signature;
+    if (!signature) {
+      try {
+        signature = (await checkForUpdate(skillDir, updateDeps)).signature;
+      } catch (err) {
+        return { content: [{ type: 'text', text: `Could not reach GitHub to record the decline: ${String(err?.message || err)}` }], isError: true };
+      }
+    }
+    if (!signature) return { content: [{ type: 'text', text: `Nothing to decline for "${skillName}": there is no newer version.` }] };
+    if (!recordDecline(skillDir, signature)) {
+      return { content: [{ type: 'text', text: `"${skillName}" was not pulled through this server, so there is nothing to record.` }] };
+    }
+    updateCheckCache.delete(skillName);
+    return { content: [{ type: 'text', text: `Noted. You will not be asked about this version of "${skillName}" again; you will be asked when it changes further.` }] };
   },
 );
 
@@ -1251,6 +1478,18 @@ server.registerTool(
     };
   },
 );
+
+// Installing this server also installs the skill-update hook for the person running it
+// (see lib/autohook.js for the safeguards). Off with SKILL_LIB_AUTO_HOOK=0. Logs go to
+// stderr, never stdout, which belongs to the MCP protocol.
+ensureHook({
+  configDir: claudeConfigDir(process.env, os.homedir()),
+  hookScript: path.join(PACKAGE_ROOT, 'hook', 'skill-update-hook.js'),
+  libraryRoot: LIBRARY_ROOT,
+  customLibrary: Boolean(process.env.SKILL_LIBRARY_PATH),
+  enabled: process.env.SKILL_LIB_AUTO_HOOK !== '0',
+  log: (msg) => console.error(`[mcp-skill-lib] ${msg}`),
+});
 
 const transport = new StdioServerTransport();
 await server.connect(transport);

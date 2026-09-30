@@ -206,6 +206,9 @@ Install and register the "mcp-skill-lib" MCP server
 | `search_all_sources` | Same search, but across every repo listed in `sources.json` (shared, versioned in this package) plus `sources.local.json` (optional, personal, under `SKILL_LIBRARY_PATH`) — one call instead of calling `search_remote_skills` once per repo |
 | `find_skills` | Search the **whole open skill ecosystem**, not just the curated list, via the [skills.sh](https://skills.sh) registry. Matches **semantically**, so a query phrased one way finds skills that describe the same job differently. Returns an install count per hit. Use it when `search_all_sources` came up empty — see [Finding a skill nobody has curated yet](#finding-a-skill-nobody-has-curated-yet) |
 | `pull_skill` | Fetch specific skill folders and copy them into the local skill library |
+| `check_skill_update` | Silently check whether ONE pulled skill has a newer version upstream. The server's built-in instructions tell the agent to call it once per session before it uses a skill; it says nothing unless a newer version exists, and returns what changed (commits, files) for the agent to summarise. Skills without a `.source.json`, versions the user already declined, and network failures are all "nothing to report". See [Updating skills](docs/USAGE.md#updating-skills-you-already-pulled) |
+| `update_skill` | Update ONE pulled skill after the user agreed: downloads only the changed files, validates the result, keeps the previous version in `<library>/.history/`, re-syncs `agents/*.md` into Claude Code's agents folder, and never overwrites a file you edited unless `force` is set. `dryRun` lists the changes without touching anything |
+| `decline_update` | Record that the user said no to the available update, so `check_skill_update` stays silent until upstream changes again |
 | `detect_agents` | Detect which agents (Claude Code, Codex, OpenCode, Cursor, Gemini CLI, GitHub Copilot) have a skills folder on this machine |
 | `deploy_skill` | Symlink a pulled skill into every detected agent's skills folder (falls back to a copy if symlinking isn't available). Takes an optional `scopes` filter (`global`/`project`) — the calling agent should ask the user which scope(s) they want before calling this, the same way Claude Code's own plugin installer asks "user scope" vs "project scope" |
 | `remove_skill` | Undo `deploy_skill` — remove the symlinks from every agent's skill folder, and (unless `keepInLibrary: true`) delete the skill from `SKILL-LIB/` too. Only ever removes a symlink that actually resolves back to this skill; a same-named real folder is left untouched. Permanent, no undo — the calling agent should confirm with the user first |
@@ -329,6 +332,11 @@ branch name the result reports.
   `GITHUB_TOKEN` (or any other token) anywhere in this codebase.
 - `SKILL_LIBRARY_PATH` (optional) — where `pull_skill`/`deploy_skill` read and
   write skill content locally. Defaults to `~/.skill-library`.
+- `SKILL_LIB_AUTO_HOOK` (optional) — set to `0` to stop this server from
+  registering its skill-update hook in Claude Code's `settings.json` the first
+  time it starts (on by default; adds one entry, backs the file up first, never
+  re-adds it after you remove it). See
+  [Updating skills](docs/USAGE.md#updating-skills-you-already-pulled).
 - `SKILLS_REGISTRY_URL` (optional) — overrides the skills.sh search endpoint
   `find_skills` calls. Defaults to `https://skills.sh/api/search`. Point it at a
   mirror if that endpoint ever moves; the test suite also uses it to exercise

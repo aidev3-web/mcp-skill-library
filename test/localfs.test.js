@@ -53,3 +53,10 @@ test('symlinks are skipped, not walked or listed', (t) => {
   assert.deepEqual(relPaths, ['SKILL.md']);
   assert.ok(!relPaths.some((p) => p.startsWith('linked')));
 });
+
+test('the root .source.json (pull/update bookkeeping) is never part of the skill files', () => {
+  const dir = makeTempDir();
+  fs.writeFileSync(path.join(dir, 'SKILL.md'), '---\nname: foo\ndescription: x\n---\n');
+  fs.writeFileSync(path.join(dir, '.source.json'), '{"owner":"o"}');
+  assert.deepEqual(walkSkillFiles(dir).map((f) => f.relativePath), ['SKILL.md']);
+});
