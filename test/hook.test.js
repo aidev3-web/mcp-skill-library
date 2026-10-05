@@ -45,7 +45,7 @@ test('a tool that is not Skill produces nothing and never touches the network', 
   assert.equal(r.calls(), 0);
 });
 
-test('a skill not pulled through mcp-skill-lib is silent and makes no network call', async () => {
+test('a skill not pulled through technext-mcp-skill-lib is silent and makes no network call', async () => {
   const libraryRoot = lib();
   fs.mkdirSync(path.join(libraryRoot, 'demo'));
   fs.writeFileSync(path.join(libraryRoot, 'demo', 'SKILL.md'), SKILL_MD());

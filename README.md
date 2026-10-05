@@ -1,6 +1,6 @@
 # mcp-skill-library
 
-MCP server (`mcp-skill-lib`) that lets any MCP-capable agent — Claude Code, Claude
+MCP server (`technext-mcp-skill-lib`) that lets any MCP-capable agent — Claude Code, Claude
 Desktop, OpenCode, Codex CLI, or any other client that speaks MCP — browse and
 pull [Agent Skills](https://agentskills.io/home) (`SKILL.md` folders) from a
 GitHub repo, deploy them into whichever agent's local skills folder exists on
@@ -72,7 +72,7 @@ config — auth comes entirely from the `gh auth login` session on the machine.
 
 **Claude Code**
 ```bash
-claude mcp add --scope user mcp-skill-lib -- node /absolute/path/to/mcp-skill-library/index.js
+claude mcp add --scope user technext-mcp-skill-lib -- node /absolute/path/to/mcp-skill-library/index.js
 ```
 On Windows, quote the path if it contains spaces (common under a
 localized user folder, e.g. `"C:\Users\you\OneDrive\Máy tính\...\index.js"`).
@@ -85,7 +85,7 @@ Microsoft Store install, which uses a different, sandboxed path than the
 ```json
 {
   "mcpServers": {
-    "mcp-skill-lib": {
+    "technext-mcp-skill-lib": {
       "command": "node",
       "args": ["/absolute/path/to/mcp-skill-library/index.js"]
     }
@@ -95,7 +95,7 @@ Microsoft Store install, which uses a different, sandboxed path than the
 
 **OpenCode** — add to `opencode.json`:
 ```json
-"mcp-skill-lib": {
+"technext-mcp-skill-lib": {
   "type": "local",
   "command": ["node", "/absolute/path/to/mcp-skill-library/index.js"]
 }
@@ -103,7 +103,7 @@ Microsoft Store install, which uses a different, sandboxed path than the
 
 **Codex CLI** — add to `~/.codex/config.toml`:
 ```toml
-[mcp_servers.mcp-skill-lib]
+[mcp_servers.technext-mcp-skill-lib]
 command = "node"
 args = ["/absolute/path/to/mcp-skill-library/index.js"]
 ```
@@ -117,7 +117,7 @@ MCP Servers** → **View raw config**, or edit the file directly at
 ```json
 {
   "mcpServers": {
-    "mcp-skill-lib": {
+    "technext-mcp-skill-lib": {
       "command": "node",
       "args": ["/absolute/path/to/mcp-skill-library/index.js"]
     }
@@ -132,18 +132,18 @@ Restart the agent after editing its config — MCP config is only read on startu
 Don't want to type any of the commands above by hand? Paste the block below
 as-is into a chat with any MCP-capable agent (Claude Code, Claude Desktop,
 OpenCode, Codex CLI, Antigravity IDE...) running on the target machine. It
-detects which agent it is, registers `mcp-skill-lib` the right way for that
+detects which agent it is, registers `technext-mcp-skill-lib` the right way for that
 agent, and verifies the install — without you touching a config file.
 
 ```text
-Install and register the "mcp-skill-lib" MCP server
+Install and register the "technext-mcp-skill-lib" MCP server
 (@aidev3-web/mcp-skill-library) for yourself on this machine. Do this:
 
 1. Check `node --version` is 18 or higher. If Node.js is missing or too
    old, tell me how to install/upgrade it and stop.
 
-2. Check whether "mcp-skill-lib" is already registered for you, at any
-   scope (e.g. `claude mcp list` / `claude mcp get mcp-skill-lib` for
+2. Check whether "technext-mcp-skill-lib" is already registered for you, at any
+   scope (e.g. `claude mcp list` / `claude mcp get technext-mcp-skill-lib` for
    Claude Code, or the equivalent config file for your agent type). If
    it already exists:
    - Show me exactly what it's currently pointing at (command, scope)

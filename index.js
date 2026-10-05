@@ -141,7 +141,7 @@ const SERVER_INSTRUCTIONS = [
   'If they agree, call update_skill. If they decline, call decline_update so they are not asked again until the skill changes further. Never update without their agreement.',
 ].join(' ');
 
-const server = new McpServer({ name: 'mcp-skill-lib', version: '0.1.0' }, { instructions: SERVER_INSTRUCTIONS });
+const server = new McpServer({ name: 'technext-mcp-skill-lib', version: '0.1.0' }, { instructions: SERVER_INSTRUCTIONS });
 
 // Result of the last check per skill, so repeated uses in one session do not
 // hit GitHub again. Cleared for a skill when it is updated or declined.
@@ -1490,7 +1490,7 @@ ensureHook({
   libraryRoot: LIBRARY_ROOT,
   customLibrary: Boolean(process.env.SKILL_LIBRARY_PATH),
   enabled: process.env.SKILL_LIB_AUTO_HOOK !== '0',
-  log: (msg) => console.error(`[mcp-skill-lib] ${msg}`),
+  log: (msg) => console.error(`[technext-mcp-skill-lib] ${msg}`),
 });
 
 const transport = new StdioServerTransport();
