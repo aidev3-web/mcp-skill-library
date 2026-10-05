@@ -14,6 +14,27 @@ test('adds the hook to empty settings', () => {
   const { settings, change } = addHook({}, SCRIPT);
   assert.equal(change, 'added');
   assert.deepEqual(settings.hooks.PreToolUse, [{ matcher: 'Skill', hooks: [{ type: 'command', command: buildCommand(SCRIPT), timeout: 15 }] }]);
+  // a slash command never calls the Skill tool, so the same command also listens to the user's prompt (no matcher)
+  assert.deepEqual(settings.hooks.UserPromptSubmit, [{ hooks: [{ type: 'command', command: buildCommand(SCRIPT), timeout: 15 }] }]);
+});
+
+test('an install from before slash-command support gets the prompt hook added, not duplicated', () => {
+  const old = { hooks: { PreToolUse: [{ matcher: 'Skill', hooks: [{ type: 'command', command: buildCommand(SCRIPT), timeout: 15 }] }] } };
+  const r = addHook(old, SCRIPT);
+  assert.equal(r.change, 'updated');
+  assert.equal(r.settings.hooks.PreToolUse.length, 1);
+  assert.equal(r.settings.hooks.UserPromptSubmit.length, 1);
+  assert.equal(addHook(r.settings, SCRIPT).change, 'unchanged');
+});
+
+test('prompt hooks the user already has are kept, and remove clears both of ours', () => {
+  const mine = { hooks: [{ type: 'command', command: 'echo prompt' }] };
+  const both = addHook({ hooks: { UserPromptSubmit: [mine] } }, SCRIPT).settings;
+  assert.equal(both.hooks.UserPromptSubmit.length, 2);
+  const r = removeHook(both);
+  assert.equal(r.removed, 2);
+  assert.deepEqual(r.settings.hooks.UserPromptSubmit, [mine]);
+  assert.equal(r.settings.hooks.PreToolUse, undefined);
 });
 
 test('keeps every other setting and hook the user already has', () => {
@@ -51,11 +72,12 @@ test('refuses settings whose hooks shape it cannot safely extend', () => {
 test('remove takes out only this hook and tidies up what it emptied', () => {
   const both = addHook({ hooks: { PreToolUse: [OTHER] } }, SCRIPT).settings;
   const r = removeHook(both);
-  assert.equal(r.removed, 1);
+  assert.equal(r.removed, 2); // the Skill-tool entry and the prompt entry
   assert.deepEqual(r.settings.hooks.PreToolUse, [OTHER]);
+  assert.equal(r.settings.hooks.UserPromptSubmit, undefined);
 
   const alone = removeHook(addHook({}, SCRIPT).settings);
-  assert.equal(alone.removed, 1);
+  assert.equal(alone.removed, 2);
   assert.equal(alone.settings.hooks, undefined);
 
   assert.equal(removeHook({ hooks: { PreToolUse: [OTHER] } }).removed, 0);

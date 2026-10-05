@@ -232,12 +232,16 @@ change and touches nothing.
 **The skill hook: installed for you when you install this server.** The server's
 instructions only ask the agent to check, and an agent can occasionally skip
 that. So the first time this server starts on a machine that has Claude Code, it
-also registers `hook/skill-update-hook.js` as a Claude Code `PreToolUse` hook
-scoped to the `Skill` tool, and the check then always happens. The hook runs only
-when a skill is about to be used (a `/slash` command or the model's own choice;
-both go through the Skill tool), never at plain session start, and it prints
-something only when that skill has a newer version you have not been asked about
-this session. It takes effect from your next Claude Code session.
+also registers `hook/skill-update-hook.js` with Claude Code on two events, and the
+check then always happens. A `PreToolUse` hook scoped to the `Skill` tool covers the
+model choosing a skill; a `UserPromptSubmit` hook covers a `/slash` command, which
+loads the skill without ever calling the Skill tool. The hook runs only when a
+skill is about to be used (a prompt that does not start with `/<a skill in your
+library>` ends it at once, with no network call), never at plain session start, and
+it prints something only when that skill has a newer version you have not been
+asked about this session. It takes effect from your next Claude Code session.
+Machines that installed the earlier, `Skill`-tool-only hook get the second entry
+the next time the server starts, or by running `node hook/install-hook.js --apply`.
 
 Because this edits `~/.claude/settings.json` (or `$CLAUDE_CONFIG_DIR/settings.json`),
 it is deliberately conservative:
