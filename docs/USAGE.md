@@ -152,6 +152,52 @@ the files instead — check `note`), `skipped-exists` (already there, nothing
 changed), or `error` (check the `error` field for why). **Restart your agent**
 after this — skill folders are only re-scanned on startup.
 
+## Skills that need other skills — `dependencies.json`
+
+A skill can be a conductor for other skills (for example `technext-sales-proposal`
+calls twelve sub-skills by name). Agents load skills only from a skills folder, so
+those sub-skills must be installed too. Instead of asking every user to pull them one
+by one, the skill's author puts a `dependencies.json` next to its `SKILL.md`:
+
+```json
+{
+  "requires": ["company-verifier", "officers-lookup"],
+  "optional": ["diagram-design"]
+}
+```
+
+`pull_skill` reads it after pulling the skill and pulls the listed skills as well;
+`deploy_skill` then deploys them to the same agent locations, so you choose the scope
+once. Your prompt does not change:
+
+> Use mcp-skill-lib to install technext-sales-proposal from aidev3-web/SKILL-LIB, global scope.
+
+- **Where they come from.** The same repo and ref as the skill, as **siblings of its
+  folder** (`team/x` needs `team/y`; a skill at the repo root needs a root folder). A
+  dependency is never fetched from another repo.
+- **`requires` and `optional`** are both installed by default. Pass
+  `includeOptional: false` to leave the optional ones out, or `withDependencies: false`
+  to pull or deploy only the skill you named.
+- **Dependencies of dependencies** are followed, once each (a cycle cannot loop), up to
+  25 in total. Something reached only through an optional skill stays optional.
+- **What is already in your library is kept.** A dependency you already have is reported
+  as `already-present` and not overwritten; its own dependencies are still followed.
+- **A dependency that cannot be found** in the repo is reported as an `error` for that
+  skill only. The skill you asked for and the other dependencies still install. If a
+  dependency is missing from the library at deploy time, `deploy_skill` says so
+  (`dependency-missing`) and deploys the rest.
+- **Malformed entries are ignored and reported.** Names must be plain folder names:
+  anything with a `/`, `\`, `..` or a leading `-` is dropped with a warning and never
+  reaches the file system.
+- **Agent files** (`agents/*.md`) of every deployed skill are copied to Claude Code's
+  agents folder, as for a single skill.
+- **Updates.** After `update_skill`, if the new version lists skills that are not in your
+  library yet, the result says so; call `pull_skill` for the skill again to fetch them.
+
+To add one to your own skill, list the folder names in `dependencies.json` and keep
+each of them a normal skill folder in the same repo (its folder name equal to its
+`name`). SKILL-LIB's lint only reads `SKILL.md`, so the extra file is fine.
+
 ## Updating skills you already pulled
 
 `pull_skill` now records where each skill came from in a `.source.json` next to

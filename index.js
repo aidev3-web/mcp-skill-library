@@ -27,6 +27,8 @@ import {
   getCommitsForPath,
 } from './lib/github.js';
 import { ensureHook, claudeConfigDir } from './lib/autohook.js';
+import { readDependenciesFile, resolveDependencies, missingDependencies } from './lib/dependencies.js';
+import { createPuller } from './lib/pull.js';
 import { SOURCE_FILE, writeSource, checkForUpdate, performUpdate, recordDecline, syncAgentFiles, describeUpdate } from './lib/updates.js';
 import { parseFrontmatter } from './lib/frontmatter.js';
 import { detectAgents, deploySkill, removeSkill, findRemainingDeployments } from './lib/agents.js';
@@ -468,16 +470,26 @@ server.registerTool(
   },
 );
 
+const { pullOneSkill, pullDependencies } = createPuller({
+  resolveSkillDir,
+  badNameMessage: BAD_SKILL_NAME_MSG,
+  getBlobBytes,
+  getCommitsForPath,
+  onPulled: (name) => updateCheckCache.delete(name),
+});
+
 server.registerTool(
   'pull_skill',
   {
     description:
-      'Fetch specific skill folders (as returned by search_remote_skills) from a GitHub repo — only those folders, not the whole repo — and copy them into the local canonical skill library (SKILL-LIB/).',
+      'Fetch specific skill folders (as returned by search_remote_skills) from a GitHub repo — only those folders, not the whole repo — and copy them into the local canonical skill library (SKILL-LIB/). If a pulled skill has a dependencies.json next to its SKILL.md, the skills it lists are pulled too (required and optional, from the same repo and ref, as sibling folders; ones already in the library are kept); pass withDependencies false to pull only what you asked for.',
     inputSchema: {
       owner: z.string(),
       repo: z.string(),
       ref: z.string().optional(),
       skillPaths: z.array(z.string()).describe('Repo-relative folder paths to pull, e.g. ["team/some-skill"]'),
+      withDependencies: z.boolean().optional().default(true).describe('Also pull the skills listed in the dependencies.json of each pulled skill (same repo and ref, next to the skill). Set false to pull only what was asked for.'),
+      includeOptional: z.boolean().optional().default(true).describe('With withDependencies: also pull the "optional" ones (default true). Set false to pull only the required ones.'),
     },
     outputSchema: {
       pulled: z.array(
@@ -485,89 +497,28 @@ server.registerTool(
           path: z.string(),
           name: z.string(),
           localPath: z.string(),
-          status: z.enum(['pulled', 'error']),
+          status: z.enum(['pulled', 'error', 'already-present', 'skipped-optional']),
           warnings: z.array(z.string()),
+          dependencyOf: z.string().optional().describe('Set when this skill was pulled because another skill lists it in dependencies.json'),
+          optional: z.boolean().optional().describe('For a dependency: true if it was listed as optional'),
         }),
       ),
     },
   },
-  async ({ owner, repo, ref, skillPaths }) => {
+  async ({ owner, repo, ref, skillPaths, withDependencies, includeOptional }) => {
     const { tree, ref: resolvedRef } = await loadTree(owner, repo, ref);
     const pulled = [];
     for (const skillPath of skillPaths) {
-      const prefix = `${skillPath}/`;
-      const files = tree.filter((e) => e.type === 'blob' && e.path.startsWith(prefix));
-      const folderName = path.basename(skillPath);
-      if (!files.some((f) => f.path === `${skillPath}/SKILL.md`)) {
-        pulled.push({ path: skillPath, name: folderName, localPath: '', status: 'error', warnings: ['No SKILL.md found under this path in the repo tree'] });
-        continue;
-      }
-      // Same guard as deploy/remove: the folder this writes into must be one
-      // name directly under the library, never a path the repo (or a crafted
-      // skillPath like "a/..") can steer somewhere else.
-      const destRoot = resolveSkillDir(folderName);
-      if (!destRoot) {
-        pulled.push({ path: skillPath, name: folderName, localPath: '', status: 'error', warnings: [BAD_SKILL_NAME_MSG] });
-        continue;
-      }
-      let escaped = null;
-      for (const f of files) {
-        const rel = f.path.slice(prefix.length);
-        const destFile = path.resolve(destRoot, rel);
-        // Repo-controlled path, so treat it like an archive entry: anything
-        // that resolves outside destRoot is a zip-slip and aborts the skill.
-        if (destFile !== path.join(destRoot, rel) || !destFile.startsWith(destRoot + path.sep)) {
-          escaped = f.path;
-          break;
+      const entry = await pullOneSkill(tree, owner, repo, resolvedRef, skillPath);
+      pulled.push(entry);
+      if (entry.status === 'pulled' && withDependencies) {
+        const seen = new Set(pulled.map((p) => p.name));
+        for (const dep of await pullDependencies(tree, owner, repo, resolvedRef, entry, { includeOptional })) {
+          if (seen.has(dep.name)) continue; // listed by an earlier skill in this same call
+          seen.add(dep.name);
+          pulled.push(dep);
         }
-        fs.mkdirSync(path.dirname(destFile), { recursive: true });
-        // Bytes, not text: a skill folder can hold images/PDFs/fonts, and a
-        // utf8 round-trip rewrites every non-UTF8 byte to U+FFFD.
-        fs.writeFileSync(destFile, await getBlobBytes(owner, repo, f.sha));
       }
-      if (escaped) {
-        pulled.push({
-          path: skillPath,
-          name: folderName,
-          localPath: '',
-          status: 'error',
-          warnings: [`Repo entry "${escaped}" resolves outside the skill folder — refusing to write it (path traversal).`],
-        });
-        continue;
-      }
-      const skillMd = fs.readFileSync(path.join(destRoot, 'SKILL.md'), 'utf8');
-      const fm = parseFrontmatter(skillMd) || {};
-      const warnings = [];
-      if (!fm.name) warnings.push('SKILL.md frontmatter is missing "name"');
-      else if (fm.name !== folderName) warnings.push(`frontmatter name "${fm.name}" does not match folder name "${folderName}"`);
-      if (!fm.description) warnings.push('SKILL.md frontmatter is missing "description"');
-      const extraKeys = Object.keys(fm).filter((k) => k !== 'name' && k !== 'description');
-      if (extraKeys.length) warnings.push(`frontmatter has agent-specific keys that won't port cleanly: ${extraKeys.join(', ')}`);
-      // Remember where this came from and the exact blob of every file written,
-      // so check_skill_update can later tell what changed upstream and whether
-      // the user edited anything locally. Best effort: never fail a pull on it.
-      try {
-        let commit = null;
-        try {
-          commit = (await getCommitsForPath(owner, repo, resolvedRef, skillPath, 1))[0]?.sha ?? null;
-        } catch {
-          // the commit id is informational only
-        }
-        writeSource(destRoot, {
-          owner,
-          repo,
-          ref: resolvedRef,
-          path: skillPath,
-          commit,
-          pulledAt: new Date().toISOString(),
-          declinedSignature: null,
-          files: Object.fromEntries(files.map((f) => [f.path.slice(prefix.length), f.sha])),
-        });
-        updateCheckCache.delete(folderName);
-      } catch (err) {
-        warnings.push(`could not record ${SOURCE_FILE} (update checks will skip this skill): ${String(err?.message || err)}`);
-      }
-      pulled.push({ path: skillPath, name: fm.name || folderName, localPath: destRoot, status: 'pulled', warnings });
     }
     // Same reasoning as search_remote_skills: list names/warnings in the text
     // block, not just structuredContent, so clients that only surface text
@@ -575,10 +526,16 @@ server.registerTool(
     const detail = pulled
       .map((p) => {
         const warn = p.warnings.length ? ` [warnings: ${p.warnings.join('; ')}]` : '';
-        return `- ${p.name} (${p.path}): ${p.status}${warn}`;
+        const dep = p.dependencyOf ? ` — ${p.optional ? 'optional ' : ''}dependency of ${p.dependencyOf}` : '';
+        return `- ${p.name} (${p.path}): ${p.status}${dep}${warn}`;
       })
       .join('\n');
-    const summary = `Pulled ${pulled.filter((p) => p.status === 'pulled').length}/${skillPaths.length} skill(s) into ${LIBRARY_ROOT}.`;
+    const requested = pulled.filter((p) => !p.dependencyOf);
+    const deps = pulled.filter((p) => p.dependencyOf);
+    const depNote = deps.length
+      ? ` Plus ${deps.filter((d) => d.status === 'pulled').length}/${deps.length} dependenc${deps.length === 1 ? 'y' : 'ies'} listed in dependencies.json (${deps.filter((d) => d.status === 'already-present').length} already present).`
+      : '';
+    const summary = `Pulled ${requested.filter((p) => p.status === 'pulled').length}/${skillPaths.length} skill(s) into ${LIBRARY_ROOT}.${depNote}`;
     return {
       content: [{ type: 'text', text: pulled.length ? `${summary}\n\n${detail}` : summary }],
       structuredContent: { pulled },
@@ -618,18 +575,20 @@ server.registerTool(
   'deploy_skill',
   {
     description:
-      'Symlink (junction on Windows) a skill already pulled into SKILL-LIB/ into every detected agent skill directory on this machine (Claude Code, Codex, OpenCode, Cursor, Gemini CLI, GitHub Copilot), so any agent here can use it. Falls back to copying if symlinking is unavailable in this environment. Never overwrites an existing non-symlink folder. IMPORTANT for the calling agent: before invoking this tool, ask the user which scope(s) to install into — "global" (available to every project on this machine) vs "project" (only this project, and shared with collaborators if committed) — the same way Claude Code\'s own plugin installer asks "Install for you (user scope)" vs "Install for all collaborators on this repository (project scope)". Do not default to deploying to every detected location without asking first, unless the user has already told you which scope(s) they want.',
+      'Symlink (junction on Windows) a skill already pulled into SKILL-LIB/ into every detected agent skill directory on this machine (Claude Code, Codex, OpenCode, Cursor, Gemini CLI, GitHub Copilot), so any agent here can use it. Falls back to copying if symlinking is unavailable in this environment. Never overwrites an existing non-symlink folder. IMPORTANT for the calling agent: before invoking this tool, ask the user which scope(s) to install into — "global" (available to every project on this machine) vs "project" (only this project, and shared with collaborators if committed) — the same way Claude Code\'s own plugin installer asks "Install for you (user scope)" vs "Install for all collaborators on this repository (project scope)". Do not default to deploying to every detected location without asking first, unless the user has already told you which scope(s) they want. If the skill has a dependencies.json, the skills it lists (pulled by pull_skill) are deployed to the same locations, so ask about scope once, not per skill; pass withDependencies false to deploy only the skill itself.',
     inputSchema: {
       skillName: z.string().describe('Folder name under SKILL-LIB/, as returned by pull_skill'),
       cwd: z.string().optional(),
       targets: z.array(z.enum(['claude-code', 'codex', 'opencode', 'cursor', 'gemini', 'copilot'])).optional().describe('Restrict to these agents only (default: all detected)'),
       scopes: z.array(z.enum(['global', 'project'])).optional().describe('Restrict to these scope(s) only (default: both). Ask the user which scope(s) they want before calling this tool — see the tool description.'),
+      withDependencies: z.boolean().optional().default(true).describe('Also deploy the skills listed in the dependencies.json of this skill (already pulled by pull_skill) to the same agent locations. Set false to deploy only this skill.'),
+      includeOptional: z.boolean().optional().default(true).describe('With withDependencies: also deploy the optional ones (default true).'),
     },
     outputSchema: {
-      results: z.array(z.object({ agent: z.string(), scope: z.string(), skillsDir: z.string(), status: z.string(), path: z.string().optional(), note: z.string().optional(), error: z.string().optional() })),
+      results: z.array(z.object({ skill: z.string().optional(), agent: z.string(), scope: z.string(), skillsDir: z.string(), status: z.string(), path: z.string().optional(), note: z.string().optional(), error: z.string().optional() })),
     },
   },
-  async ({ skillName, cwd, targets, scopes }) => {
+  async ({ skillName, cwd, targets, scopes, withDependencies, includeOptional }) => {
     const sourceDir = resolveSkillDir(skillName);
     if (!sourceDir) {
       return { content: [{ type: 'text', text: BAD_SKILL_NAME_MSG }], isError: true, structuredContent: { results: [] } };
@@ -644,38 +603,75 @@ server.registerTool(
     let agents = detectAgents(cwd || process.cwd());
     if (targets?.length) agents = agents.filter((a) => targets.includes(a.agent));
     if (scopes?.length) agents = agents.filter((a) => scopes.includes(a.scope));
-    const results = deploySkill(sourceDir, agents);
-    // Agent definition files (<skill>/agents/*.md) are copied, not linked, into
-    // Claude Code's agents/ folder — a skill that dispatches named subagents
-    // needs them there. Files the user edited there are left alone.
-    try {
-      const agentDirs = agentDirsForDeployedSkill(skillName, cwd).filter((d) =>
-        agents.some((a) => a.agent === 'claude-code' && path.join(path.dirname(a.skillsDir), 'agents') === d),
-      );
-      for (const r of syncAgentFiles(sourceDir, agentDirs)) {
-        results.push({
-          agent: 'claude-code-agents',
-          scope: 'copy',
-          skillsDir: r.dir,
-          status: `agent-file-${r.status}`,
-          path: r.path,
-          ...(r.status === 'skipped-edited' ? { note: `${r.file} differs from this skill's version (your own edit?) — left as is` } : {}),
-        });
+
+    // One skill: link it, then copy its agents/*.md into Claude Code's agents/
+    // folder (agent definition files are copied, not linked — a skill that
+    // dispatches named subagents needs them there; files the user edited there
+    // are left alone).
+    const deployOne = (name, dir) => {
+      const out = deploySkill(dir, agents).map((r) => ({ ...r, skill: name }));
+      try {
+        const agentDirs = agentDirsForDeployedSkill(name, cwd).filter((d) =>
+          agents.some((a) => a.agent === 'claude-code' && path.join(path.dirname(a.skillsDir), 'agents') === d),
+        );
+        for (const r of syncAgentFiles(dir, agentDirs)) {
+          out.push({
+            agent: 'claude-code-agents',
+            scope: 'copy',
+            skillsDir: r.dir,
+            skill: name,
+            status: `agent-file-${r.status}`,
+            path: r.path,
+            ...(r.status === 'skipped-edited' ? { note: `${r.file} differs from this skill's version (your own edit?) — left as is` } : {}),
+          });
+        }
+      } catch (err) {
+        out.push({ agent: 'claude-code-agents', scope: 'copy', skillsDir: '', skill: name, status: 'error', error: String(err?.message || err) });
       }
-    } catch (err) {
-      results.push({ agent: 'claude-code-agents', scope: 'copy', skillsDir: '', status: 'error', error: String(err?.message || err) });
+      return out;
+    };
+
+    const results = deployOne(skillName, sourceDir);
+    let depNote = '';
+    if (withDependencies && readDependenciesFile(sourceDir)) {
+      // The dependencies were pulled by pull_skill; here they are linked the same way,
+      // into the same agent locations the user already chose for the main skill.
+      const { deps } = await resolveDependencies(skillName, async (name) => {
+        const d = resolveSkillDir(name);
+        return d ? readDependenciesFile(d) : null;
+      });
+      let done = 0;
+      for (const dep of deps) {
+        if (dep.kind === 'optional' && !includeOptional) continue;
+        const depDir = resolveSkillDir(dep.name);
+        if (!depDir || !fs.existsSync(path.join(depDir, 'SKILL.md'))) {
+          results.push({
+            agent: 'dependencies',
+            scope: '-',
+            skillsDir: '',
+            skill: dep.name,
+            status: 'dependency-missing',
+            note: `${dep.kind === 'optional' ? 'optional ' : ''}dependency of ${skillName} is not in the library; call pull_skill for ${skillName} to fetch it`,
+          });
+          continue;
+        }
+        results.push(...deployOne(dep.name, depDir));
+        done++;
+      }
+      depNote = ` Plus ${done} dependenc${done === 1 ? 'y' : 'ies'} of it.`;
     }
+
     // Same reasoning as the other tools: list per-agent status/notes in the
     // text block, not just a count — a "deployed-copy" fallback especially
     // needs to be visible to whoever/whatever is reading the response.
     const listing = results
       .map((r) => {
         const extra = r.note ? ` [${r.note}]` : r.error ? ` [error: ${r.error}]` : '';
-        return `- ${r.agent} (${r.scope}): ${r.status}${extra}`;
+        return `- ${r.skill ? `${r.skill}: ` : ''}${r.agent} (${r.scope}): ${r.status}${extra}`;
       })
       .join('\n');
-    const deployedCount = results.filter((r) => r.status === 'deployed' || r.status === 'deployed-copy').length;
-    const summary = `Deployed "${skillName}" to ${deployedCount} agent location(s).`;
+    const mainCount = results.filter((r) => r.skill === skillName && (r.status === 'deployed' || r.status === 'deployed-copy')).length;
+    const summary = `Deployed "${skillName}" to ${mainCount} agent location(s).${depNote}`;
     return {
       content: [{ type: 'text', text: results.length ? `${summary}\n\n${listing}` : summary }],
       structuredContent: { results },
@@ -792,8 +788,14 @@ server.registerTool(
     } catch (err) {
       agentLines = `\n\nAgent files could not be synced: ${String(err?.message || err)}`;
     }
+    const missingDeps = missingDependencies(skillDir, LIBRARY_ROOT);
+    const depLines = missingDeps.requires.length || missingDeps.optional.length
+      ? `
+
+This version lists skills that are not in the library yet: ${[...missingDeps.requires, ...missingDeps.optional.map((n) => `${n} (optional)`)].join(', ')}. Call pull_skill for "${skillName}" again (it also fetches its dependencies), then deploy_skill.`
+      : '';
     return {
-      content: [{ type: 'text', text: `Updated "${skillName}" (${planText}). Previous version kept at ${res.backup}. Skills already loaded in this session may only pick up the new version in the next session.${agentLines}` }],
+      content: [{ type: 'text', text: `Updated "${skillName}" (${planText}). Previous version kept at ${res.backup}. Skills already loaded in this session may only pick up the new version in the next session.${agentLines}${depLines}` }],
       structuredContent: { status: 'updated', plan: res.plan, backup: res.backup },
     };
   },
