@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { runHook, skillNameFromInput } from '../lib/hook.js';
+import { runHook, skillNameFromInput, skillNameFromPrompt } from '../lib/hook.js';
 import { gitBlobSha, writeSource, recordDecline, checkForUpdate } from '../lib/updates.js';
 
 const SKILL_MD = (extra = '') => `---\nname: demo\ndescription: a demo skill\n---\nbody${extra}\n`;
@@ -143,4 +143,52 @@ test('the launcher reads the library location from --library, not only from the 
   });
   assert.equal(res.status, 0);
   assert.ok(dir);
+});
+
+const promptCall = (prompt, session = 's1') => ({ session_id: session, hook_event_name: 'UserPromptSubmit', prompt });
+
+test('skillNameFromPrompt: only a leading /name counts, and hostile names are refused', () => {
+  assert.equal(skillNameFromPrompt(promptCall('/demo')), 'demo');
+  assert.equal(skillNameFromPrompt(promptCall('  /demo do the thing')), 'demo');
+  assert.equal(skillNameFromPrompt(promptCall('/myplugin:demo go')), 'demo');
+  assert.equal(skillNameFromPrompt(promptCall('please run /demo')), null);
+  assert.equal(skillNameFromPrompt(promptCall('/../../Documents')), null);
+  assert.equal(skillNameFromPrompt(promptCall('hello')), null);
+  assert.equal(skillNameFromPrompt({ prompt: 42 }), null);
+});
+
+test('a slash command for a skill with a newer version is reported as UserPromptSubmit context, once per session', async () => {
+  const libraryRoot = lib();
+  pulled(libraryRoot);
+  const r = remote(SKILL_MD(' v2'));
+  const first = await runHook(promptCall('/demo run it', 's1'), { libraryRoot, ...r });
+  assert.equal(first.hookSpecificOutput.hookEventName, 'UserPromptSubmit');
+  assert.match(first.hookSpecificOutput.additionalContext, /better demo/);
+  assert.equal(await runHook(promptCall('/demo again', 's1'), { libraryRoot, ...r }), null, 'same session: already told');
+  assert.ok(await runHook(promptCall('/demo', 's2'), { libraryRoot, ...r }), 'a new session asks again');
+});
+
+test('a prompt that is not a slash command for a library skill is silent and makes no network call', async () => {
+  const libraryRoot = lib();
+  pulled(libraryRoot);
+  const r = remote(SKILL_MD(' v2'));
+  for (const prompt of ['hello there', '/clear', '/model', 'text with /demo inside']) {
+    assert.equal(await runHook(promptCall(prompt), { libraryRoot, ...r }), null, prompt);
+  }
+  assert.equal(r.calls(), 0);
+});
+
+test('an up-to-date skill is silent when started with a slash command', async () => {
+  const libraryRoot = lib();
+  pulled(libraryRoot);
+  assert.equal(await runHook(promptCall('/demo'), { libraryRoot, ...remote(SKILL_MD()) }), null);
+});
+
+test('the hook script handles a UserPromptSubmit payload on stdin and exits 0', () => {
+  const libraryRoot = lib();
+  const res = spawnSync('node', ['hook/skill-update-hook.js', '--library', libraryRoot], {
+    cwd: ROOT, encoding: 'utf8', input: JSON.stringify(promptCall('/not-in-the-library')),
+  });
+  assert.equal(res.status, 0);
+  assert.equal(res.stdout, '');
 });
