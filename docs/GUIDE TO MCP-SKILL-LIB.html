@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>mcp-skill-lib Docs</title>
+<title>technext-mcp-skill-lib Docs</title>
 <style>
   :root{
     --cream:#fbf3ea; --card:#fffaf3; --ink:#3a3a3a; --sub:#8a7f74;
@@ -222,7 +222,7 @@
 <body>
 
   <div class="topbar">
-    <div class="brand"><span class="dot"></span>mcp-skill-lib <span class="topbar-sub">&nbsp;·&nbsp;<span data-vi>tài liệu</span><span data-en>docs</span></span></div>
+    <div class="brand"><span class="dot"></span>technext-mcp-skill-lib <span class="topbar-sub">&nbsp;·&nbsp;<span data-vi>tài liệu</span><span data-en>docs</span></span></div>
     <div class="lang-toggle">
       <button id="btn-vi" onclick="setLang('vi')">VI</button>
       <button id="btn-en" class="active" onclick="setLang('en')">EN</button>
@@ -264,7 +264,7 @@
       <section id="overview" data-nav="overview">
         <div class="breadcrumb"><span data-vi>Bắt đầu</span><span data-en>Getting started</span></div>
         <h2><span data-vi>Tổng quan</span><span data-en>Overview</span></h2>
-        <p class="lead"><span data-vi>mcp-skill-lib là cầu nối skill giữa mọi agent MCP trên máy bạn (Claude Code, Codex, OpenCode, Copilot...). Bạn không gọi tool trực tiếp — chỉ cần nói với agent bằng lời thường, nó tự chọn đúng tool trong số 10 tool phía dưới.</span><span data-en>mcp-skill-lib is the knowledge bridge between every MCP agent on your machine (Claude Code, Codex, OpenCode, Copilot...). You never call a tool directly — just tell your agent in plain language, and it picks the right one of the 10 tools below.</span></p>
+        <p class="lead"><span data-vi>technext-mcp-skill-lib là cầu nối skill giữa mọi agent MCP trên máy bạn (Claude Code, Codex, OpenCode, Copilot...). Bạn không gọi tool trực tiếp — chỉ cần nói với agent bằng lời thường, nó tự chọn đúng tool trong số 10 tool phía dưới.</span><span data-en>technext-mcp-skill-lib is the knowledge bridge between every MCP agent on your machine (Claude Code, Codex, OpenCode, Copilot...). You never call a tool directly — just tell your agent in plain language, and it picks the right one of the 10 tools below.</span></p>
 
         <h3 id="key-concepts"><span data-vi>Khái niệm chính</span><span data-en>Key concepts</span></h3>
         <ul class="concepts">
@@ -317,7 +317,7 @@
           <div class="step-node" id="step-3">
             <div class="step-head"><span class="step-circle">3</span><h4><span data-vi>Đăng ký với agent</span><span data-en>Register with the agent</span></h4></div>
             <p class="step-desc"><span data-vi>Agent phải <b>hỏi scope trước</b>: <span class="pill">user</span> (mọi project) hay <span class="pill">project</span> (1 thư mục)</span><span data-en>Agent must <b>ask your scope first</b>: <span class="pill">user</span> (every project) or <span class="pill">project</span> (one folder)</span></p>
-            <p class="step-desc"><span class="pill">claude mcp add --scope &lt;user|project&gt; mcp-skill-lib -- node &lt;path&gt;</span></p>
+            <p class="step-desc"><span class="pill">claude mcp add --scope &lt;user|project&gt; technext-mcp-skill-lib -- node &lt;path&gt;</span></p>
           </div>
           <div class="step-node" id="step-4">
             <div class="step-head"><span class="step-circle">4</span><h4><span data-vi>Restart &amp; xác nhận</span><span data-en>Restart &amp; verify</span></h4></div>
@@ -339,14 +339,14 @@
         <details class="init-prompt" id="init-prompt">
           <summary><span data-vi>Xem / copy prompt init (nhờ agent tự cài giúp bạn)</span><span data-en>View / copy the init prompt (let the agent install it for you)</span></summary>
           <div class="init-prompt-body">
-            <pre><button class="copy-btn" onclick="copyInitPrompt()"><span data-vi>Copy</span><span data-en>Copy</span></button><code id="init-prompt-text">Install and register the "mcp-skill-lib" MCP server
+            <pre><button class="copy-btn" onclick="copyInitPrompt()"><span data-vi>Copy</span><span data-en>Copy</span></button><code id="init-prompt-text">Install and register the "technext-mcp-skill-lib" MCP server
 (@aidev3-web/mcp-skill-library) for yourself on this machine. Do this:
 
 1. Check `node --version` is 18 or higher. If Node.js is missing or too
    old, tell me how to install/upgrade it and stop.
 
-2. Check whether "mcp-skill-lib" is already registered for you, at any
-   scope (e.g. `claude mcp list` / `claude mcp get mcp-skill-lib` for
+2. Check whether "technext-mcp-skill-lib" is already registered for you, at any
+   scope (e.g. `claude mcp list` / `claude mcp get technext-mcp-skill-lib` for
    Claude Code, or the equivalent config file for your agent type). If
    it already exists:
    - Show me exactly what it's currently pointing at (command, scope)
@@ -979,7 +979,7 @@ pullRequestAction: "created"</div>
 
       <section id="closing" data-nav="closing">
         <div class="closing">
-          <p class="big"><span data-vi>mcp-skill-lib không đơn thuần là chỗ lưu file,</span><span data-en>mcp-skill-lib isn't just a place to store files —</span></p>
+          <p class="big"><span data-vi>technext-mcp-skill-lib không đơn thuần là chỗ lưu file,</span><span data-en>technext-mcp-skill-lib isn't just a place to store files —</span></p>
           <p class="quote"><span data-vi>nó là "cầu nối tri thức" giữa mọi agent MCP trên máy bạn.</span><span data-en>it's the "knowledge bridge" between every MCP agent on your machine.</span></p>
           <p class="quote" style="margin-top:14px">
             <span data-vi>Việc bạn cần làm là cài đúng một lần, sau đó chỉ cần nói chuyện bình thường với agent —<br>nó tự tìm, tự cài, tự gỡ skill giúp bạn, không cần nhớ tên tool nào cả.</span>
@@ -1059,11 +1059,11 @@ function setLang(lang){
   document.documentElement.setAttribute('data-lang', lang);
   document.getElementById('btn-vi').classList.toggle('active', lang==='vi');
   document.getElementById('btn-en').classList.toggle('active', lang==='en');
-  try{ localStorage.setItem('mcp-skill-lib-infographic-lang', lang); }catch(e){}
+  try{ localStorage.setItem('technext-mcp-skill-lib-infographic-lang', lang); }catch(e){}
 }
 (function(){
   var saved = 'en';
-  try{ saved = localStorage.getItem('mcp-skill-lib-infographic-lang') || 'en'; }catch(e){}
+  try{ saved = localStorage.getItem('technext-mcp-skill-lib-infographic-lang') || 'en'; }catch(e){}
   setLang(saved);
 })();
 function copyInitPrompt(){

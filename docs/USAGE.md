@@ -170,7 +170,7 @@ by one, the skill's author puts a `dependencies.json` next to its `SKILL.md`:
 `deploy_skill` then deploys them to the same agent locations, so you choose the scope
 once. Your prompt does not change:
 
-> Use mcp-skill-lib to install technext-sales-proposal from aidev3-web/SKILL-LIB, global scope.
+> Use technext-mcp-skill-lib to install technext-sales-proposal from aidev3-web/SKILL-LIB, global scope.
 
 - **Where they come from.** The same repo and ref as the skill, as **siblings of its
   folder** (`team/x` needs `team/y`; a skill at the repo root needs a root folder). A
@@ -244,7 +244,7 @@ it is deliberately conservative:
 
 - it only adds its own single entry; every other setting and hook stays exactly
   as it was, and the previous file is copied to `settings.json.bak-<time>` first;
-- it says what it did on stderr (`[mcp-skill-lib] installed the skill-update hook
+- it says what it did on stderr (`[technext-mcp-skill-lib] installed the skill-update hook
   in …`) together with how to turn it off;
 - it is done once: if you remove the hook, it is never put back. It only keeps
   its own entry pointing at the current install if the package moves;
