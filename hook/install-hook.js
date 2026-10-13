@@ -14,14 +14,16 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { addHook, removeHook } from '../lib/hookconfig.js';
+import { addHook, removeHook, addSetupHook, removeSetupHook } from '../lib/hookconfig.js';
 
 const args = process.argv.slice(2);
 const flag = (n) => args.includes(n);
 const valueOf = (n) => (args.includes(n) ? args[args.indexOf(n) + 1] : undefined);
 
 const settingsPath = path.resolve(valueOf('--settings') || path.join(os.homedir(), '.claude', 'settings.json'));
-const hookScript = path.join(path.dirname(fileURLToPath(import.meta.url)), 'skill-update-hook.js');
+const hookDir = path.dirname(fileURLToPath(import.meta.url));
+const hookScript = path.join(hookDir, 'skill-update-hook.js');
+const setupScript = path.join(hookDir, 'project-setup-hook.js');
 const libraryArg = valueOf('--library') ? path.resolve(valueOf('--library')) : process.env.SKILL_LIBRARY_PATH ? path.resolve(process.env.SKILL_LIBRARY_PATH) : undefined;
 const apply = flag('--apply');
 const remove = flag('--remove');
@@ -40,15 +42,20 @@ if (fs.existsSync(settingsPath)) {
 
 let result;
 try {
-  result = remove ? removeHook(settings) : addHook(settings, hookScript, libraryArg);
+  // Both hooks (skill updates, and the project-setup reminder) are installed and removed together.
+  const a = remove ? removeHook(settings) : addHook(settings, hookScript, libraryArg);
+  const b = remove ? removeSetupHook(a.settings) : addSetupHook(a.settings, setupScript, libraryArg);
+  result = remove
+    ? { settings: b.settings, removed: a.removed + b.removed }
+    : { settings: b.settings, change: a.change === 'unchanged' && b.change === 'unchanged' ? 'unchanged' : a.change === 'added' || b.change === 'added' ? 'added' : 'updated' };
 } catch (err) {
   console.error(`Refusing to change ${settingsPath}: ${err.message}`);
   process.exit(1);
 }
 
 const summary = remove
-  ? result.removed ? `remove ${result.removed} skill-update hook entr${result.removed === 1 ? 'y' : 'ies'}` : 'nothing to remove'
-  : { added: 'add the skill-update hook', updated: 'update the hook path to this install', unchanged: 'already installed, nothing to change' }[result.change];
+  ? result.removed ? `remove ${result.removed} hook entr${result.removed === 1 ? 'y' : 'ies'} (skill-update, project-setup)` : 'nothing to remove'
+  : { added: 'add the skill-update and project-setup hooks', updated: 'update the hook path to this install', unchanged: 'already installed, nothing to change' }[result.change];
 const changes = remove ? result.removed > 0 : result.change !== 'unchanged';
 
 console.log(`Settings file: ${settingsPath}${existed ? '' : ' (does not exist yet; would be created)'}`);

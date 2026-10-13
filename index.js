@@ -27,7 +27,7 @@ import {
   getCommitsForPath,
   listOwnerRepos,
 } from './lib/github.js';
-import { ensureHook, claudeConfigDir } from './lib/autohook.js';
+import { ensureHook, ensureSetupHook, claudeConfigDir } from './lib/autohook.js';
 import { readDependenciesFile, resolveDependencies, missingDependencies } from './lib/dependencies.js';
 import { createPuller } from './lib/pull.js';
 import { SOURCE_FILE, writeSource, checkForUpdate, performUpdate, recordDecline, syncAgentFiles, describeUpdate } from './lib/updates.js';
@@ -37,6 +37,7 @@ import { validateSkillFolder } from './lib/validate.js';
 import { isSkillManifestPath, mapWithConcurrency } from './lib/util.js';
 import { searchRegistry } from './lib/registry.js';
 import { expandSources, isOrgSource } from './lib/sources.js';
+import { scanProject, readExistingSetup, recommend, CATEGORIES } from './lib/recommend.js';
 import { walkSkillFiles, findSecretFiles, findDangerousInstructions } from './lib/localfs.js';
 import { computeStaticSignals, buildTestPlan, buildReportHtml, writeReport } from './lib/benchmark.js';
 
@@ -141,6 +142,7 @@ const SERVER_INSTRUCTIONS = [
   'If the result says there is nothing to report (up to date, declined, untracked, removed upstream, or an error), say nothing about it and carry on with the skill.',
   'Only when it reports a newer version: tell the user briefly what changed (use the commit messages and file list), say whether the change looks relevant to what they are working on in this project, and ask whether to update.',
   'If they agree, call update_skill. If they decline, call decline_update so they are not asked again until the skill changes further. Never update without their agreement.',
+  'When the user starts a new project, or works in a folder that has no CLAUDE.md, and has not asked for setup help themselves, you can offer recommend_setup once: it reads the project and suggests skills, MCP servers and hooks that fit it. It changes nothing; apply only what the user picks.',
 ].join(' ');
 
 const server = new McpServer({ name: 'technext-mcp-skill-lib', version: '0.1.0' }, { instructions: SERVER_INSTRUCTIONS });
@@ -571,6 +573,136 @@ server.registerTool(
     return {
       content: [{ type: 'text', text: `${summary}\n\n${listing}` }],
       structuredContent: { agents },
+    };
+  },
+);
+
+// Skills in the configured sources whose folder (or, for a skill at a repo root, repo)
+// name contains `query`. Path match only, like search_all_sources with a query: no blob
+// fetched, so it is cheap enough to run once per recommended skill.
+async function findSkillsForQuery(query, sources, max = 3) {
+  const q = query.toLowerCase();
+  const hits = [];
+  for (const src of sources) {
+    if (hits.length >= max) break;
+    try {
+      const { tree } = await loadTree(src.owner, src.repo, src.ref);
+      for (const d of skillDirsFromTree(tree)) {
+        const label = d.dir || src.repo;
+        if (label.toLowerCase().includes(q)) hits.push({ owner: src.owner, repo: src.repo, path: d.dir, name: path.basename(label) });
+        if (hits.length >= max) break;
+      }
+    } catch {
+      // an unreachable source only means fewer matches
+    }
+  }
+  return hits;
+}
+
+server.registerTool(
+  'recommend_setup',
+  {
+    description:
+      'Look at a project folder and recommend Claude Code setup for it: a CLAUDE.md, MCP servers, skills, hooks, subagents and slash commands that fit what the project actually uses (language, framework, database, tests, CI). Read-only: it never writes to the project and never opens .env files. It reads package.json, pyproject.toml/requirements.txt, go.mod and similar manifests, and what already exists under .claude/, so it does not recommend what is already set up. Skill recommendations are matched against the repos in sources.json, so each one that exists comes with the owner/repo/path to hand to pull_skill. Returns the top 2 per category, or up to 5 of one category when `category` is given. Use it when the user asks how to set up Claude Code for a project, what hooks/MCP servers/skills to use, or when starting in a new project.',
+    inputSchema: {
+      projectPath: z.string().optional().describe('Absolute path of the project folder (defaults to this server process cwd)'),
+      category: z.enum(CATEGORIES).optional().describe('Only this kind of recommendation, with more options (up to 5)'),
+    },
+    outputSchema: {
+      projectPath: z.string(),
+      signals: z.array(z.object({ signal: z.string(), evidence: z.string() })),
+      existing: z.object({
+        claudeMd: z.boolean(),
+        hookEvents: z.array(z.string()),
+        mcpServers: z.array(z.string()),
+        skills: z.array(z.string()),
+        subagents: z.array(z.string()),
+        commands: z.array(z.string()),
+      }),
+      recommendations: z.array(z.object({
+        category: z.string(),
+        id: z.string(),
+        name: z.string(),
+        why: z.string(),
+        matched: z.array(z.string()),
+        skillMatches: z.array(z.object({ owner: z.string(), repo: z.string(), path: z.string(), name: z.string() })).optional(),
+      })),
+    },
+  },
+  async ({ projectPath, category }) => {
+    const dir = path.resolve(projectPath || process.cwd());
+    let isDir = false;
+    try {
+      isDir = fs.statSync(dir).isDirectory();
+    } catch {
+      // handled below
+    }
+    if (!isDir) {
+      return { content: [{ type: 'text', text: `Not a folder: ${dir}` }], isError: true };
+    }
+    let rules;
+    try {
+      rules = JSON.parse(fs.readFileSync(path.join(PACKAGE_ROOT, 'data', 'setup-rules.json'), 'utf8')).rules || [];
+    } catch (err) {
+      return { content: [{ type: 'text', text: `Could not read data/setup-rules.json: ${String(err?.message || err)}` }], isError: true };
+    }
+
+    const { signals, evidence } = scanProject(dir);
+    const existing = readExistingSetup(dir);
+    const picked = recommend(signals, existing, rules, { category });
+
+    // Resolve each recommended skill against the skill sources. Best effort: if GitHub
+    // or `gh` is unavailable the recommendation is still reported, just without a match.
+    const wantsSkills = picked.some((r) => r.category === 'skill' && r.skillQuery);
+    let sources = [];
+    let skillNote = '';
+    if (wantsSkills) {
+      try {
+        await ensureGhReady();
+        sources = (await expandSources(loadSources(), listOwnerRepos)).sources;
+      } catch (err) {
+        skillNote = `\n\nSkill matches were skipped: ${String(err?.message || err)}`;
+      }
+    }
+    const recommendations = [];
+    for (const r of picked) {
+      const rec = { category: r.category, id: r.id, name: r.name, why: r.why, matched: r.matched };
+      if (r.category === 'skill' && r.skillQuery && sources.length) rec.skillMatches = await findSkillsForQuery(r.skillQuery, sources);
+      recommendations.push(rec);
+    }
+
+    const signalRows = signals.map((sig) => ({ signal: sig, evidence: evidence[sig] || '' }));
+    const lines = [`Project: ${dir}`, `Detected: ${signals.length ? signals.join(', ') : 'nothing recognisable'}`];
+    const have = [
+      existing.claudeMd ? 'CLAUDE.md' : null,
+      existing.hookEvents.length ? `hooks (${existing.hookEvents.join(', ')})` : null,
+      existing.mcpServers.length ? `MCP (${existing.mcpServers.join(', ')})` : null,
+      existing.skills.length ? `skills (${existing.skills.join(', ')})` : null,
+      existing.subagents.length ? `subagents (${existing.subagents.join(', ')})` : null,
+      existing.commands.length ? `commands (${existing.commands.join(', ')})` : null,
+    ].filter(Boolean);
+    lines.push(`Already set up: ${have.length ? have.join('; ') : 'nothing'}`);
+    lines.push('');
+    if (recommendations.length === 0) {
+      lines.push('No recommendations: nothing in the rule list matches this project, or it is already set up for every match.');
+    }
+    for (const c of CATEGORIES) {
+      const group = recommendations.filter((r) => r.category === c);
+      if (!group.length) continue;
+      lines.push(`## ${c}`);
+      for (const r of group) {
+        lines.push(`- ${r.name} — ${r.why} (because: ${r.matched.join(', ')})`);
+        if (r.skillMatches?.length) {
+          for (const m of r.skillMatches) lines.push(`    available: ${m.owner}/${m.repo} ${m.path || '(repo root)'} → pull_skill`);
+        } else if (c === 'skill') {
+          lines.push('    not found in the configured skill sources');
+        }
+      }
+    }
+    lines.push('', 'Read-only: nothing was changed. Ask for a single category (hook, mcp, skill, subagent, command) to see more options.');
+    return {
+      content: [{ type: 'text', text: lines.join('\n') + skillNote }],
+      structuredContent: { projectPath: dir, signals: signalRows, existing, recommendations },
     };
   },
 );
@@ -1494,6 +1626,14 @@ ensureHook({
   libraryRoot: LIBRARY_ROOT,
   customLibrary: Boolean(process.env.SKILL_LIBRARY_PATH),
   enabled: process.env.SKILL_LIB_AUTO_HOOK !== '0',
+  log: (msg) => console.error(`[technext-mcp-skill-lib] ${msg}`),
+});
+ensureSetupHook({
+  configDir: claudeConfigDir(process.env, os.homedir()),
+  hookScript: path.join(PACKAGE_ROOT, 'hook', 'project-setup-hook.js'),
+  libraryRoot: LIBRARY_ROOT,
+  customLibrary: Boolean(process.env.SKILL_LIBRARY_PATH),
+  enabled: process.env.SKILL_LIB_AUTO_HOOK !== '0' && process.env.SKILL_LIB_SETUP_HINT !== '0',
   log: (msg) => console.error(`[technext-mcp-skill-lib] ${msg}`),
 });
 

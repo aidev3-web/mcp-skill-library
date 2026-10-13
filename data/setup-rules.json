@@ -1,0 +1,162 @@
+{
+  "_comment": "Rules for recommend_setup. A rule matches when ANY signal in `when` is present in the project. weight (default 1) ranks rules inside a category. Add or change rules by PR. Signals are produced by lib/recommend.js (scanProject).",
+  "rules": [
+    {
+      "id": "claude-md",
+      "category": "memory",
+      "name": "Add a CLAUDE.md",
+      "why": "The project has no CLAUDE.md. A short file with build/test commands and conventions is what every new session reads first. Run /init to draft one.",
+      "when": ["lang:node", "lang:python", "lang:go", "lang:rust", "lang:java", "lang:dotnet", "project:no-manifest", "project:empty"],
+      "weight": 3
+    },
+
+    {
+      "id": "context7",
+      "category": "mcp",
+      "name": "context7 (live library docs)",
+      "why": "Your dependencies change faster than the model's training data; this looks up current docs for the libraries you use.",
+      "when": ["fw:react", "fw:next", "fw:vue", "fw:angular", "fw:svelte", "fw:express", "fw:fastify", "fw:nest", "fw:fastapi", "fw:django", "fw:flask", "fw:streamlit"],
+      "weight": 3
+    },
+    {
+      "id": "playwright",
+      "category": "mcp",
+      "name": "Playwright (browser automation)",
+      "why": "A frontend project benefits from driving a real browser to check the UI it just changed.",
+      "when": ["fw:react", "fw:next", "fw:vue", "fw:angular", "fw:svelte", "test:playwright"],
+      "weight": 2
+    },
+    {
+      "id": "supabase",
+      "category": "mcp",
+      "name": "Supabase",
+      "why": "The project uses Supabase; the MCP server can inspect schema and run queries directly.",
+      "when": ["db:supabase"],
+      "weight": 3
+    },
+    {
+      "id": "github",
+      "category": "mcp",
+      "name": "GitHub",
+      "why": "The project is a git repo with GitHub Actions; issues, PRs and workflow runs become readable from the session.",
+      "when": ["ci:github-actions"],
+      "weight": 2
+    },
+    {
+      "id": "sentry",
+      "category": "mcp",
+      "name": "Sentry",
+      "why": "The project reports errors to Sentry; the MCP server lets the session read the actual error events.",
+      "when": ["tool:sentry"],
+      "weight": 2
+    },
+
+    {
+      "id": "frontend-design",
+      "category": "skill",
+      "name": "Frontend design skill",
+      "why": "A UI framework is in use; a design skill raises the baseline quality of generated interfaces.",
+      "when": ["fw:react", "fw:next", "fw:vue", "fw:angular", "fw:svelte", "tool:tailwind"],
+      "skillQuery": "frontend-design",
+      "weight": 2
+    },
+    {
+      "id": "webapp-testing",
+      "category": "skill",
+      "name": "Web app testing skill",
+      "why": "The project has a web UI and tests; a skill that drives the app in a browser helps verify changes.",
+      "when": ["test:playwright", "test:cypress", "fw:streamlit", "fw:react", "fw:next"],
+      "skillQuery": "webapp-testing",
+      "weight": 1
+    },
+    {
+      "id": "mcp-builder",
+      "category": "skill",
+      "name": "MCP server builder skill",
+      "why": "The project talks to model APIs; if you build tools for an agent, this skill covers MCP server conventions.",
+      "when": ["api:anthropic", "api:openai"],
+      "skillQuery": "mcp-builder",
+      "weight": 1
+    },
+    {
+      "id": "skill-creator",
+      "category": "skill",
+      "name": "Skill creator",
+      "why": "Turn a workflow you repeat in this project into a reusable skill.",
+      "when": ["lang:node", "lang:python", "lang:go", "lang:rust", "lang:java", "lang:dotnet", "project:no-manifest"],
+      "skillQuery": "skill-creator",
+      "weight": 1
+    },
+
+    {
+      "id": "format-on-edit",
+      "category": "hook",
+      "name": "Format files after each edit (PostToolUse)",
+      "why": "A formatter is configured in the project, so a PostToolUse hook can run it on every file Claude edits and keep diffs clean.",
+      "when": ["tool:prettier", "tool:ruff", "tool:black"],
+      "hookEvent": "PostToolUse",
+      "weight": 3
+    },
+    {
+      "id": "lint-on-edit",
+      "category": "hook",
+      "name": "Lint after each edit (PostToolUse)",
+      "why": "A linter is configured; running it after edits surfaces problems while the change is still in context.",
+      "when": ["tool:eslint", "tool:mypy"],
+      "hookEvent": "PostToolUse",
+      "weight": 2
+    },
+    {
+      "id": "block-secret-files",
+      "category": "hook",
+      "name": "Block edits to env/secret files (PreToolUse)",
+      "why": "The project has env files. A PreToolUse hook can refuse writes to them so secrets are never touched by accident.",
+      "when": ["file:env"],
+      "hookEvent": "PreToolUse",
+      "weight": 3
+    },
+    {
+      "id": "test-on-stop",
+      "category": "hook",
+      "name": "Run the tests when Claude finishes (Stop)",
+      "why": "The project has a test suite; a Stop hook that runs it catches regressions before you look at the result.",
+      "when": ["test:suite", "test:jest", "test:vitest", "test:pytest", "test:mocha"],
+      "hookEvent": "Stop",
+      "weight": 1
+    },
+
+    {
+      "id": "code-reviewer",
+      "category": "subagent",
+      "name": "Code reviewer subagent",
+      "why": "A read-only reviewer that checks a diff against the project's tests and conventions, run in its own context.",
+      "when": ["test:suite", "ci:github-actions", "vcs:git"],
+      "weight": 2
+    },
+    {
+      "id": "security-reviewer",
+      "category": "subagent",
+      "name": "Security reviewer subagent",
+      "why": "The project handles payments, auth-adjacent APIs or a database; a focused security pass is worth its own agent.",
+      "when": ["api:stripe", "db:postgres", "db:mysql", "db:mongo", "db:supabase", "db:prisma", "db:sql"],
+      "weight": 2
+    },
+
+    {
+      "id": "test",
+      "category": "command",
+      "name": "/test slash command",
+      "why": "A one-word command that runs the project's tests and summarizes failures.",
+      "when": ["test:jest", "test:vitest", "test:pytest", "test:mocha", "test:suite"],
+      "weight": 1
+    },
+    {
+      "id": "pr-review",
+      "category": "command",
+      "name": "/pr-review slash command",
+      "why": "A repeatable pull-request checklist for a repo that uses GitHub Actions.",
+      "when": ["ci:github-actions"],
+      "weight": 1
+    }
+  ]
+}
