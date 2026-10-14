@@ -25,6 +25,7 @@ import {
   findOpenPull,
   createPull,
   getCommitsForPath,
+  listOwnerRepos,
 } from './lib/github.js';
 import { ensureHook, claudeConfigDir } from './lib/autohook.js';
 import { readDependenciesFile, resolveDependencies, missingDependencies } from './lib/dependencies.js';
@@ -35,6 +36,7 @@ import { detectAgents, deploySkill, removeSkill, findRemainingDeployments } from
 import { validateSkillFolder } from './lib/validate.js';
 import { isSkillManifestPath, mapWithConcurrency } from './lib/util.js';
 import { searchRegistry } from './lib/registry.js';
+import { expandSources, isOrgSource } from './lib/sources.js';
 import { walkSkillFiles, findSecretFiles, findDangerousInstructions } from './lib/localfs.js';
 import { computeStaticSignals, buildTestPlan, buildReportHtml, writeReport } from './lib/benchmark.js';
 
@@ -119,8 +121,8 @@ function loadSources() {
       throw new Error(`Could not read skill sources from ${p}: ${String(err?.message || err)}`);
     }
     for (const s of parsed?.sources || []) {
-      if (!s?.owner || !s?.repo) continue;
-      const key = `${s.owner}/${s.repo}`;
+      if (!s?.owner || !(s.repo || isOrgSource(s))) continue;
+      const key = s.repo ? `${s.owner}/${s.repo}` : `${s.owner}/*${s.orgMatch}`;
       if (seen.has(key)) continue;
       seen.add(key);
       sources.push(s);
@@ -250,7 +252,8 @@ server.registerTool(
     },
   },
   async ({ query, limit }) => {
-    const sources = loadSources();
+    await ensureGhReady();
+    const { sources, warnings: sourceWarnings } = await expandSources(loadSources(), listOwnerRepos);
     if (sources.length === 0) {
       return {
         content: [{ type: 'text', text: 'No sources configured — add at least one to sources.json (shared) or sources.local.json (personal, under SKILL_LIBRARY_PATH).' }],
@@ -308,9 +311,10 @@ server.registerTool(
     const failedNote = failedSources.length
       ? `\n\nSkipped ${failedSources.length} source(s) that errored: ${failedSources.map((s) => `${s.owner}/${s.repo} (${s.error})`).join('; ')}`
       : '';
+    const warnNote = sourceWarnings.length ? `\n\n${sourceWarnings.join('\n')}` : '';
     const summary = `Found ${totalMatched} matching skill(s) across ${sources.length} source(s); returning ${items.length}.`;
     return {
-      content: [{ type: 'text', text: (items.length ? `${summary}\n\n${listing}` : summary) + failedNote }],
+      content: [{ type: 'text', text: (items.length ? `${summary}\n\n${listing}` : summary) + failedNote + warnNote }],
       structuredContent: { items, sourcesSearched, totalMatched },
     };
   },
