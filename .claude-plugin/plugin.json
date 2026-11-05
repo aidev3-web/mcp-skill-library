@@ -1,0 +1,15 @@
+{
+  "name": "technext-mcp-skill-lib",
+  "description": "MCP server for browsing, pulling, deploying and contributing Agent Skills. Needs Node.js and a logged-in GitHub CLI (gh auth login).",
+  "version": "0.1.0",
+  "author": {
+    "name": "aidev3-web"
+  },
+  "repository": "https://github.com/aidev3-web/mcp-skill-library",
+  "mcpServers": {
+    "technext-mcp-skill-lib": {
+      "command": "npx",
+      "args": ["-y", "github:aidev3-web/mcp-skill-library"]
+    }
+  }
+}

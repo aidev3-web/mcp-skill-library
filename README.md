@@ -59,6 +59,26 @@ This re-clones the repo on every launch, so it's slower to start and more
 sensitive to a flaky connection than the recommended local-run install above
 — use it only if you're not going to be launching this server often.
 
+## Install as a Claude Code plugin
+
+This repo is also a plugin marketplace (`.claude-plugin/marketplace.json`).
+In Claude Code, add it once and install the plugin:
+
+```
+/plugin install technext-mcp-skill-lib --marketplace aidev3-web/mcp-skill-library
+```
+
+On older Claude Code versions, run the two steps instead:
+
+```
+/plugin marketplace add aidev3-web/mcp-skill-library
+/plugin install technext-mcp-skill-lib@technext-skill-library
+```
+
+The plugin starts the server with `npx -y github:aidev3-web/mcp-skill-library`,
+so you still need the prerequisites above (Node.js, `gh auth login`, and
+read access to this repo).
+
 ## Register with your agent
 
 Every snippet below uses `node` pointed at your local checkout's `index.js`
