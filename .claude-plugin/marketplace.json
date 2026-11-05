@@ -1,0 +1,14 @@
+{
+  "name": "technext-skill-library",
+  "description": "TechNext's MCP skill library: search, pull, deploy, validate, benchmark and push Agent Skills.",
+  "owner": {
+    "name": "aidev3-web"
+  },
+  "plugins": [
+    {
+      "name": "technext-mcp-skill-lib",
+      "source": "./",
+      "description": "MCP server for browsing, pulling, deploying and contributing Agent Skills. Needs Node.js and a logged-in GitHub CLI (gh auth login)."
+    }
+  ]
+}
